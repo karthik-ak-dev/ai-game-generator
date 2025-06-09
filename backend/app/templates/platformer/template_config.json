@@ -1,0 +1,82 @@
+{
+  "name": "Basic Platformer",
+  "description": "A simple side-scrolling platformer with jumping mechanics and collectible goals",
+  "game_type": "platformer",
+  "engine": "phaser",
+  "difficulty": "beginner",
+  "features": [
+    "player_movement",
+    "jumping_mechanics",
+    "platform_collision",
+    "gravity_physics",
+    "goal_system",
+    "basic_controls"
+  ],
+  "variables": {
+    "game_title": {
+      "type": "string",
+      "default": "My Platformer Game",
+      "description": "Title displayed at the top of the game"
+    },
+    "canvas_width": {
+      "type": "number",
+      "default": 800,
+      "description": "Game canvas width in pixels"
+    },
+    "canvas_height": {
+      "type": "number",
+      "default": 600,
+      "description": "Game canvas height in pixels"
+    },
+    "player_color": {
+      "type": "color",
+      "default": "0x3498db",
+      "description": "Color of the player character"
+    },
+    "platform_color": {
+      "type": "color",
+      "default": "0x2ecc71",
+      "description": "Color of platforms and ground"
+    },
+    "flag_color": {
+      "type": "color",
+      "default": "0xe74c3c",
+      "description": "Color of the goal flag"
+    },
+    "gravity": {
+      "type": "number",
+      "default": 300,
+      "description": "Gravity strength (higher = faster falling)"
+    },
+    "player_speed": {
+      "type": "number",
+      "default": 160,
+      "description": "Player horizontal movement speed"
+    },
+    "jump_strength": {
+      "type": "number",
+      "default": 330,
+      "description": "Player jump velocity"
+    }
+  },
+  "controls": {
+    "arrow_keys": "Move left/right and jump",
+    "wasd": "Alternative movement controls",
+    "spacebar": "Jump (alternative to up arrow)"
+  },
+  "objectives": [
+    "Navigate across platforms",
+    "Reach the red flag to win",
+    "Avoid falling off the screen"
+  ],
+  "tags": [
+    "platformer",
+    "jumping",
+    "physics",
+    "beginner"
+  ],
+  "estimated_playtime": 2,
+  "template_version": "1.0",
+  "created_at": "2023-12-07T00:00:00Z",
+  "updated_at": "2023-12-07T00:00:00Z"
+}

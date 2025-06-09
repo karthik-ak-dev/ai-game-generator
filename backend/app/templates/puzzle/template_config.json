@@ -1,0 +1,54 @@
+{
+  "name": "Match Puzzle",
+  "description": "A tile-matching puzzle game with grid mechanics",
+  "game_type": "puzzle",
+  "engine": "phaser",
+  "difficulty": "intermediate",
+  "features": [
+    "grid_system",
+    "tile_matching",
+    "click_interaction",
+    "color_matching"
+  ],
+  "variables": {
+    "game_title": {
+      "type": "string",
+      "default": "Match Puzzle"
+    },
+    "canvas_width": {
+      "type": "number",
+      "default": 600
+    },
+    "canvas_height": {
+      "type": "number",
+      "default": 500
+    },
+    "grid_rows": {
+      "type": "number",
+      "default": 6
+    },
+    "grid_cols": {
+      "type": "number",
+      "default": 8
+    },
+    "tile_types": {
+      "type": "number",
+      "default": 4
+    },
+    "tile_colors": {
+      "type": "array",
+      "default": [
+        "0xff0000",
+        "0x00ff00",
+        "0x0000ff",
+        "0xffff00"
+      ]
+    }
+  },
+  "tags": [
+    "puzzle",
+    "matching",
+    "grid",
+    "intermediate"
+  ]
+}

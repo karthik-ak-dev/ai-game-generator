@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{game_title}} - Space Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: radial-gradient(circle, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        #game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        #game-canvas {
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .game-title {
+            color: #00ffff;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .game-controls {
+            color: #ffffff;
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .control-item {
+            background: rgba(0, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .score-display {
+            color: #00ff00;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1 class="game-title">{{game_title}}</h1>
+        <div class="score-display">Score: <span id="score">0</span></div>
+        <canvas id="game-canvas" width="{{canvas_width}}" height="{{canvas_height}}"></canvas>
+        <div class="game-controls">
+            <strong>Controls:</strong>
+            <div class="controls-grid">
+                <div class="control-item">← → Arrow Keys: Move</div>
+                <div class="control-item">Space: Shoot</div>
+                <div class="control-item">Goal: Destroy all enemies!</div>
+                <div class="control-item">Avoid: Enemy collisions</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script>
+        // Game variables
+        let score = 0;
+        let scoreText;
+        let gameOver = false;
+
+        // Game configuration
+        const config = {
+            type: Phaser.AUTO,
+            width: {{ canvas_width }},
+        height: { { canvas_height } },
+        canvas: document.getElementById('game-canvas'),
+            physics: {
+                default: 'arcade',
+                arcade: {
+                gravity: { y: 0 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+                create: create,
+                    update: update
+        },
+        scale: {
+            mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+        }
+        };
+
+        // Game objects
+        let player;
+        let enemies;
+        let bullets;
+        let cursors;
+        let spaceKey;
+        let lastBulletTime = 0;
+
+        function preload() {
+            // Create player ship
+            this.add.graphics()
+                .fillStyle({{ player_color }})
+                .fillTriangle(16, 0, 0, 32, 32, 32)
+            .generateTexture('player', 32, 32);
+
+        // Create enemy ship
+        this.add.graphics()
+            .fillStyle({{ enemy_color }})
+            .fillTriangle(16, 32, 0, 0, 32, 0)
+            .generateTexture('enemy', 32, 32);
+
+        // Create bullet
+        this.add.graphics()
+            .fillStyle({{ bullet_color }})
+            .fillRect(0, 0, 4, 10)
+            .generateTexture('bullet', 4, 10);
+        }
+
+        function create() {
+            // Create player
+            player = this.physics.add.sprite({{ canvas_width }}/2, {{canvas_height}} - 50, 'player');
+        player.setCollideWorldBounds(true);
+
+        // Create groups
+        enemies = this.physics.add.group();
+        bullets = this.physics.add.group();
+
+        // Create initial enemies
+        for (let i = 0; i < {{ enemy_count }}; i++) {
+            const x = Phaser.Math.Between(50, {{ canvas_width }} - 50);
+        const y = Phaser.Math.Between(50, 200);
+        const enemy = enemies.create(x, y, 'enemy');
+        enemy.setVelocity(
+            Phaser.Math.Between(-{{ enemy_speed }}, {{ enemy_speed }}),
+            Phaser.Math.Between({{ enemy_speed }}/2, {{enemy_speed}})
+        );
+        enemy.setBounce(1);
+        enemy.setCollideWorldBounds(true);
+            }
+
+        // Create controls
+        cursors = this.input.keyboard.createCursorKeys();
+        spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+        // Collision detection
+        this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
+        this.physics.add.overlap(player, enemies, hitPlayer, null, this);
+
+        // Score display
+        scoreText = this.add.text(16, 16, 'Score: 0', {
+            fontSize: '32px',
+            fill: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+
+        // Update HTML score display
+        updateScoreDisplay();
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            // Player movement
+            if (cursors.left.isDown) {
+                player.setVelocityX(-{{ player_speed }});
+        } else if (cursors.right.isDown) {
+            player.setVelocityX({{ player_speed }});
+            } else {
+            player.setVelocityX(0);
+        }
+
+        // Shooting
+        if (spaceKey.isDown && this.time.now > lastBulletTime + {{ fire_rate }}) {
+            shoot.call(this);
+            lastBulletTime = this.time.now;
+        }
+
+        // Clean up bullets that are off screen
+        bullets.children.entries.forEach(bullet => {
+            if (bullet.y < 0) {
+                bullet.destroy();
+            }
+        });
+
+        // Check win condition
+        if (enemies.countActive(true) === 0) {
+            winGame.call(this);
+        }
+        }
+
+        function shoot() {
+            const bullet = bullets.create(player.x, player.y - 20, 'bullet');
+            bullet.setVelocityY(-{{ bullet_speed }});
+        }
+
+        function hitEnemy(bullet, enemy) {
+            bullet.destroy();
+            enemy.destroy();
+
+            score += 10;
+            scoreText.setText('Score: ' + score);
+            updateScoreDisplay();
+
+            // Spawn new enemy
+            if (enemies.countActive(true) < {{ enemy_count }
+        }) {
+            const x = Phaser.Math.Between(50, {{ canvas_width }} - 50);
+        const y = Phaser.Math.Between(-100, -50);
+        const newEnemy = enemies.create(x, y, 'enemy');
+        newEnemy.setVelocity(
+            Phaser.Math.Between(-{{ enemy_speed }}, {{ enemy_speed }}),
+            Phaser.Math.Between({{ enemy_speed }}/2, {{enemy_speed}})
+        );
+        newEnemy.setBounce(1);
+        newEnemy.setCollideWorldBounds(true);
+            }
+        }
+
+        function hitPlayer(player, enemy) {
+            gameOver = true;
+            player.setTint(0xff0000);
+
+            this.add.text({{ canvas_width }} /2, {{canvas_height}}/2, 'GAME OVER!', {
+                fontSize: '48px',
+                fill: '#ff0000',
+                stroke: '#000000',
+                strokeThickness: 4
+            }).setOrigin(0.5);
+
+        this.add.text({{ canvas_width }}/2, {{canvas_height}}/2 + 60, 'Final Score: ' + score, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+
+        this.add.text({{ canvas_width }}/2, {{canvas_height}}/2 + 100, 'Refresh to play again', {
+            fontSize: '18px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        }
+
+        function winGame() {
+            gameOver = true;
+
+            this.add.text({{ canvas_width }} /2, {{canvas_height}}/2, 'YOU WIN!', {
+                fontSize: '48px',
+                fill: '#00ff00',
+                stroke: '#000000',
+                strokeThickness: 4
+            }).setOrigin(0.5);
+
+        this.add.text({{ canvas_width }}/2, {{canvas_height}}/2 + 60, 'Final Score: ' + score, {
+            fontSize: '24px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('score').textContent = score;
+        }
+
+        // Start the game
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+
+</html>

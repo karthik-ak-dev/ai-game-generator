@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{game_title}} - Racing Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #87CEEB 0%, #228B22 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        #game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        #game-canvas {
+            border: 2px solid #333;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1>{{game_title}}</h1>
+        <canvas id="game-canvas" width="{{canvas_width}}" height="{{canvas_height}}"></canvas>
+        <div>Use arrow keys to steer your car!</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: {{ canvas_width }},
+        height: { { canvas_height } },
+        canvas: document.getElementById('game-canvas'),
+            physics: { default: 'arcade' },
+        scene: { preload: preload, create: create, update: update }
+        };
+
+        let player;
+        let cursors;
+
+        function preload() {
+            this.add.graphics().fillStyle({{ car_color }}).fillRect(0, 0, 40, 20).generateTexture('car', 40, 20);
+        }
+
+        function create() {
+            player = this.physics.add.sprite({{ canvas_width }}/2, {{canvas_height}} - 50, 'car');
+        player.setCollideWorldBounds(true);
+        cursors = this.input.keyboard.createCursorKeys();
+        }
+
+        function update() {
+            if (cursors.left.isDown) player.setVelocityX(-{{ car_speed }});
+            else if (cursors.right.isDown) player.setVelocityX({{ car_speed }});
+        else player.setVelocityX(0);
+
+        if (cursors.up.isDown) player.setVelocityY(-{{ car_speed }});
+        else if (cursors.down.isDown) player.setVelocityY({{ car_speed }});
+        else player.setVelocityY(0);
+        }
+
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+
+</html>

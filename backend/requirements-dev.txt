@@ -1,0 +1,4 @@
+# Minimal development tools
+black>=24.0.0
+flake8>=7.0.0
+isort>=5.13.0 

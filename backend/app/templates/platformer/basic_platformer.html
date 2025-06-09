@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{game_title}} - Platformer Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+        }
+
+        #game-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #game-canvas {
+            border: 2px solid #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-title {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-controls {
+            color: white;
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        .control-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1 class="game-title">{{game_title}}</h1>
+        <canvas id="game-canvas" width="{{canvas_width}}" height="{{canvas_height}}"
+            data-canvas-width="{{canvas_width}}" data-canvas-height="{{canvas_height}}"
+            data-player-color="{{player_color}}" data-platform-color="{{platform_color}}"
+            data-flag-color="{{flag_color}}" data-gravity="{{gravity}}" data-player-speed="{{player_speed}}"
+            data-jump-strength="{{jump_strength}}"></canvas>
+        <div class="game-controls">
+            <strong>Controls:</strong>
+            <div class="controls-grid">
+                <div class="control-item">← → Arrow Keys: Move</div>
+                <div class="control-item">↑ Arrow Key / Space: Jump</div>
+                <div class="control-item">Goal: Reach the flag!</div>
+                <div class="control-item">Avoid: Falling off platforms</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    <script>
+        // Game variables
+        let player;
+        let platforms;
+        let cursors;
+        let wasdKeys;
+        let spaceKey;
+        let flag;
+        let gameWon = false;
+        let gameScene;
+
+        // Get configuration from canvas data attributes
+        const canvas = document.getElementById('game-canvas');
+        const config_data = {
+            canvasWidth: parseInt(canvas.getAttribute('data-canvas-width')) || 800,
+            canvasHeight: parseInt(canvas.getAttribute('data-canvas-height')) || 600,
+            playerColor: parseInt(canvas.getAttribute('data-player-color')) || 0x3498db,
+            platformColor: parseInt(canvas.getAttribute('data-platform-color')) || 0x2ecc71,
+            flagColor: parseInt(canvas.getAttribute('data-flag-color')) || 0xe74c3c,
+            gravity: parseInt(canvas.getAttribute('data-gravity')) || 300,
+            playerSpeed: parseInt(canvas.getAttribute('data-player-speed')) || 160,
+            jumpStrength: parseInt(canvas.getAttribute('data-jump-strength')) || 330
+        };
+
+        // Game configuration
+        const config = {
+            type: Phaser.AUTO,
+            width: config_data.canvasWidth,
+            height: config_data.canvasHeight,
+            canvas: canvas,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: config_data.gravity },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            },
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            }
+        };
+
+        function preload() {
+            gameScene = this;
+
+            // Create colored rectangles as sprites
+            this.add.graphics()
+                .fillStyle(config_data.playerColor)
+                .fillRect(0, 0, 32, 48)
+                .generateTexture('player', 32, 48);
+
+            this.add.graphics()
+                .fillStyle(config_data.platformColor)
+                .fillRect(0, 0, 400, 32)
+                .generateTexture('ground', 400, 32);
+
+            this.add.graphics()
+                .fillStyle(config_data.platformColor)
+                .fillRect(0, 0, 200, 32)
+                .generateTexture('platform', 200, 32);
+
+            this.add.graphics()
+                .fillStyle(config_data.flagColor)
+                .fillRect(0, 0, 32, 64)
+                .generateTexture('flag', 32, 64);
+        }
+
+        function create() {
+            // Create platforms group
+            platforms = this.physics.add.staticGroup();
+
+            // Create ground and platforms
+            platforms.create(config_data.canvasWidth / 2, config_data.canvasHeight - 16, 'ground').setScale(2, 1).refreshBody();
+            platforms.create(150, config_data.canvasHeight - 150, 'platform');
+            platforms.create(400, config_data.canvasHeight - 220, 'platform');
+            platforms.create(650, config_data.canvasHeight - 150, 'platform');
+            platforms.create(350, config_data.canvasHeight - 320, 'platform');
+
+            // Create player
+            player = this.physics.add.sprite(100, config_data.canvasHeight - 150, 'player');
+            player.setBounce(0.2);
+            player.setCollideWorldBounds(true);
+
+            // Player physics
+            this.physics.add.collider(player, platforms);
+
+            // Create flag (goal)
+            flag = this.physics.add.sprite(700, config_data.canvasHeight - 200, 'flag');
+            flag.setCollideWorldBounds(true);
+            this.physics.add.collider(flag, platforms);
+
+            // Player-flag collision
+            this.physics.add.overlap(player, flag, collectFlag, null, this);
+
+            // Create input controls
+            cursors = this.input.keyboard.createCursorKeys();
+            wasdKeys = this.input.keyboard.addKeys('W,S,A,D');
+            spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+            // Game instructions
+            this.add.text(16, 16, 'Reach the flag to win!', {
+                fontSize: '18px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            });
+        }
+
+        function update() {
+            if (gameWon) return;
+
+            // Left and right movement
+            if (cursors.left.isDown || wasdKeys.A.isDown) {
+                player.setVelocityX(-config_data.playerSpeed);
+            } else if (cursors.right.isDown || wasdKeys.D.isDown) {
+                player.setVelocityX(config_data.playerSpeed);
+            } else {
+                player.setVelocityX(0);
+            }
+
+            // Jumping - check if player is on ground
+            if ((cursors.up.isDown || wasdKeys.W.isDown || spaceKey.isDown) && player.body.touching.down) {
+                player.setVelocityY(-config_data.jumpStrength);
+            }
+
+            // Check if player fell off the world
+            if (player.y > config_data.canvasHeight) {
+                resetPlayer();
+            }
+        }
+
+        function collectFlag(player, flag) {
+            flag.disableBody(true, true);
+            gameWon = true;
+
+            // Victory message
+            gameScene.add.text(config_data.canvasWidth / 2, config_data.canvasHeight / 2, 'YOU WIN!', {
+                fontSize: '48px',
+                fill: '#00ff00',
+                stroke: '#000000',
+                strokeThickness: 4
+            }).setOrigin(0.5);
+
+            // Restart instruction
+            gameScene.add.text(config_data.canvasWidth / 2, config_data.canvasHeight / 2 + 60, 'Refresh to play again', {
+                fontSize: '24px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+        }
+
+        function resetPlayer() {
+            if (player && player.active) {
+                player.setPosition(100, config_data.canvasHeight - 150);
+                player.setVelocity(0, 0);
+            }
+        }
+
+        // Start the game
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,61 @@
+{
+    // Python interpreter and environment
+    "python.defaultInterpreterPath": "./backend/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    // Global format on save
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    // Python-specific settings
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    // Black formatter settings
+    "black-formatter.args": [
+        "--line-length=100"
+    ],
+    "black-formatter.path": [
+        "./backend/venv/bin/black"
+    ],
+    // Import sorting with isort
+    "isort.args": [
+        "--profile",
+        "black",
+        "--line-length",
+        "100"
+    ],
+    "isort.path": [
+        "./backend/venv/bin/isort"
+    ],
+    // Linting with flake8 - Use venv explicitly
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.pylintEnabled": false,
+    "flake8.path": [
+        "./backend/venv/bin/flake8"
+    ],
+    "flake8.args": [
+        "--max-line-length=100",
+        "--ignore=E203,W503",
+        "--exclude=.git,__pycache__,.venv,venv"
+    ],
+    // Legacy python linting settings (fallback)
+    "python.linting.flake8Path": "./backend/venv/bin/flake8",
+    "python.linting.flake8Args": [
+        "--max-line-length=100",
+        "--ignore=E203,W503",
+        "--exclude=.git,__pycache__,.venv,venv"
+    ],
+    // Show errors and warnings
+    "python.analysis.typeCheckingMode": "basic",
+    // Workspace-specific Python path
+    "python.analysis.extraPaths": [
+        "./backend"
+    ],
+    // Set working directory for Python tools
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true
+}
