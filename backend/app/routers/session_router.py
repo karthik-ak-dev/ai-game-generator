@@ -1,9 +1,9 @@
 """
-Enterprise-Standard Session Router
-Thin router that handles only HTTP concerns and delegates to controllers.
+Simplified Session Router for AI Game Generator Core Functionality
+Handles only essential session operations needed for game generation workflow.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
@@ -26,10 +26,13 @@ async def create_session(
     background_tasks: Optional[BackgroundTasks] = None,
 ) -> JSONResponse:
     """
-    Create a new session.
+    Create a new game development session.
+
+    This is typically called automatically when a user starts their first
+    conversation with the AI game generator.
 
     Args:
-        request: Optional session creation request
+        request: Optional session creation parameters
         background_tasks: FastAPI background tasks
 
     Returns:
@@ -38,7 +41,7 @@ async def create_session(
     try:
         result = await session_controller.create_session(request)
 
-        # Schedule background cleanup if needed
+        # Log session creation in background
         if background_tasks and result.data and result.data.get("session_id"):
             background_tasks.add_task(_log_session_creation, result.data["session_id"])
 
@@ -56,16 +59,19 @@ async def create_session(
         )
 
 
-@router.get("/info/{session_id}")
-async def get_session_info(session_id: str) -> JSONResponse:
+@router.get("/{session_id}")
+async def get_session_state(session_id: str) -> JSONResponse:
     """
-    Get session information.
+    Get current session state including conversation history and current game.
+
+    This is the primary endpoint for retrieving all context needed to
+    continue a game development conversation.
 
     Args:
         session_id: Session identifier
 
     Returns:
-        JSON response with session information
+        JSON response with session state, current game, and conversation history
     """
     try:
         result = await session_controller.get_session_info(session_id)
@@ -84,100 +90,13 @@ async def get_session_info(session_id: str) -> JSONResponse:
         )
 
 
-@router.put("/preferences/{session_id}")
-async def update_session_preferences(session_id: str, preferences: Dict[str, Any]) -> JSONResponse:
-    """
-    Update session preferences.
-
-    Args:
-        session_id: Session identifier
-        preferences: New preferences
-
-    Returns:
-        JSON response with updated preferences
-    """
-    try:
-        result = await session_controller.update_session_preferences(session_id, preferences)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": e.message, "error_code": e.error_code, "details": e.details},
-        )
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.get("/metrics/{session_id}")
-async def get_session_metrics(session_id: str) -> JSONResponse:
-    """
-    Get session metrics and analytics.
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        JSON response with session metrics
-    """
-    try:
-        result = await session_controller.get_session_metrics(session_id)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except (ValidationError, NotFoundError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.post("/extend/{session_id}")
-async def extend_session(session_id: str) -> JSONResponse:
-    """
-    Extend session expiration.
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        JSON response with extended session info
-    """
-    try:
-        result = await session_controller.extend_session(session_id)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except (ValidationError, NotFoundError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.delete("/cleanup/{session_id}")
+@router.delete("/{session_id}")
 async def cleanup_session(session_id: str) -> JSONResponse:
     """
-    Clean up session and associated data.
+    Clean up session and release resources.
+
+    This endpoint allows explicit session cleanup, though sessions
+    will also be automatically cleaned up when they expire.
 
     Args:
         session_id: Session identifier
@@ -202,31 +121,10 @@ async def cleanup_session(session_id: str) -> JSONResponse:
         )
 
 
-@router.get("/summary")
-async def get_active_sessions_summary() -> JSONResponse:
-    """
-    Get summary of active sessions.
-
-    Returns:
-        JSON response with active sessions summary
-    """
-    try:
-        result = await session_controller.get_active_sessions_summary()
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
 # Background task functions
 async def _log_session_creation(session_id: str) -> None:
-    """Log session creation in background."""
+    """Log session creation for monitoring purposes."""
     try:
-        logger.info("Session creation logged", session_id=session_id)
-        # Session creation analytics
+        logger.info("Session created for game development", session_id=session_id)
     except Exception as e:
         logger.error("Session creation logging failed", session_id=session_id, error=str(e))

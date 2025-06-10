@@ -1,12 +1,11 @@
 """
-Session Controller - Enterprise Standard
-Handles business logic orchestration for session management operations.
-Separates session business logic from HTTP routing concerns.
+Session Controller - Core Functionality
+Handles essential session management operations for AI game generation workflow.
 """
 
 # Standard library imports
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
 # Third-party imports
 import structlog
@@ -23,8 +22,8 @@ logger = structlog.get_logger(__name__)
 
 class SessionController:
     """
-    Enterprise-standard controller for session operations.
-    Orchestrates session management business logic.
+    Core session controller for AI game generation workflow.
+    Handles essential session operations only.
     """
 
     def __init__(self):
@@ -34,7 +33,7 @@ class SessionController:
         self, request: Optional[SessionCreationRequest] = None
     ) -> SuccessResponse:
         """
-        Business logic for session creation.
+        Create a new game development session.
 
         Args:
             request: Optional session creation request
@@ -47,7 +46,7 @@ class SessionController:
             BusinessLogicError: For creation failures
         """
         try:
-            logger.info("Creating new session")
+            logger.info("Creating new game development session")
 
             # Validate request if provided
             if request:
@@ -81,19 +80,22 @@ class SessionController:
 
     async def get_session_info(self, session_id: str) -> SuccessResponse:
         """
-        Business logic for retrieving session information.
+        Get current session state including conversation and game information.
+
+        This is the primary method for retrieving all context needed to
+        continue a game development conversation.
 
         Args:
             session_id: Session identifier
 
         Returns:
-            SuccessResponse with session information
+            SuccessResponse with comprehensive session information
         """
         try:
             # Get session
             session = await self._get_valid_session(session_id)
 
-            # Build session info response
+            # Build comprehensive session data
             session_data = {
                 "session_id": session.session_info.session_id,
                 "status": session.session_info.status.value,
@@ -101,15 +103,24 @@ class SessionController:
                 "last_activity": session.session_info.last_activity.isoformat(),
                 "expires_at": session.session_info.expires_at.isoformat(),
                 "user_id": session.session_info.user_id,
-                "games": session.games,
-                "current_game_id": session.current_game_id,
-                "generation_count": session.generation_count,
-                "modifications_made": session.modifications_made,
-                "message_count": session.conversation_messages,
+                "current_game": {
+                    "game_id": session.current_game_id,
+                    "games": session.games,
+                    "generation_count": session.generation_count,
+                    "modifications_made": session.modifications_made,
+                },
+                "conversation": {
+                    "message_count": session.conversation_messages,
+                    # Add conversation history if needed
+                },
+                "session_stats": {
+                    "duration": self._calculate_session_duration(session),
+                    "activity_level": "active" if session.modifications_made > 0 else "new",
+                },
             }
 
             return create_success_response(
-                message="Session information retrieved", data=session_data
+                message="Session state retrieved successfully", data=session_data
             )
 
         except (ValidationError, NotFoundError):
@@ -118,129 +129,9 @@ class SessionController:
             logger.error("Failed to get session info", session_id=session_id, error=str(e))
             raise BusinessLogicError("Failed to retrieve session information")
 
-    async def update_session_preferences(
-        self, session_id: str, preferences: Dict[str, Any]
-    ) -> SuccessResponse:
-        """
-        Business logic for updating session preferences.
-
-        Args:
-            session_id: Session identifier
-            preferences: New preferences
-
-        Returns:
-            SuccessResponse with updated preferences
-        """
-        try:
-            # Validate session
-            await self._get_valid_session(session_id)
-
-            # Validate preferences
-            await self._validate_preferences(preferences)
-
-            # Update preferences using the update_session method
-            success = await self.session_manager.update_session(
-                session_id, {"preferences": preferences}
-            )
-
-            if not success:
-                raise BusinessLogicError("Failed to update session preferences")
-
-            return create_success_response(
-                message="Session preferences updated",
-                data={"session_id": session_id, "preferences": preferences},
-            )
-
-        except (ValidationError, NotFoundError):
-            raise
-        except Exception as e:
-            logger.error(
-                "Failed to update session preferences", session_id=session_id, error=str(e)
-            )
-            raise BusinessLogicError("Failed to update preferences")
-
-    async def get_session_metrics(self, session_id: str) -> SuccessResponse:
-        """
-        Business logic for retrieving session metrics.
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            SuccessResponse with session metrics
-        """
-        try:
-            # Validate session
-            session = await self._get_valid_session(session_id)
-
-            # Get metrics
-            metrics = await self.session_manager.get_session_metrics(session_id)
-
-            # Build metrics response
-            metrics_data = {
-                "session_id": session_id,
-                "session_duration": self._calculate_session_duration(session),
-                "activity_count": {
-                    "games_generated": session.generation_count,
-                    "modifications_made": session.modifications_made,
-                    "messages_sent": session.conversation_messages,
-                },
-                "performance_metrics": metrics.dict() if metrics else None,
-                "last_activity": session.session_info.last_activity.isoformat(),
-            }
-
-            return create_success_response(message="Session metrics retrieved", data=metrics_data)
-
-        except (ValidationError, NotFoundError):
-            raise
-        except Exception as e:
-            logger.error("Failed to get session metrics", session_id=session_id, error=str(e))
-            raise BusinessLogicError("Failed to retrieve session metrics")
-
-    async def extend_session(self, session_id: str) -> SuccessResponse:
-        """
-        Business logic for extending session expiration.
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            SuccessResponse with extended session info
-        """
-        try:
-            # Get and validate session exists
-            await self._get_valid_session(session_id)
-
-            # Extend session
-            success = await self.session_manager.extend_session(session_id)
-
-            if not success:
-                raise BusinessLogicError("Failed to extend session")
-
-            # Get updated session info
-            updated_session = await self.session_manager.get_session(session_id)
-
-            response_data = {
-                "session_id": session_id,
-                "extended": True,
-                "new_expires_at": (
-                    updated_session.session_info.expires_at.isoformat() if updated_session else None
-                ),
-            }
-
-            return create_success_response(
-                message="Session extended successfully", data=response_data
-            )
-
-        except (ValidationError, NotFoundError):
-            raise
-        except Exception as e:
-            logger.error("Failed to extend session", session_id=session_id, error=str(e))
-            raise BusinessLogicError("Failed to extend session")
-
     async def cleanup_session(self, session_id: str) -> SuccessResponse:
         """
-        Business logic for session cleanup.
+        Clean up session and release all associated resources.
 
         Args:
             session_id: Session identifier
@@ -269,31 +160,6 @@ class SessionController:
             logger.error("Failed to cleanup session", session_id=session_id, error=str(e))
             raise BusinessLogicError("Failed to cleanup session")
 
-    async def get_active_sessions_summary(self) -> SuccessResponse:
-        """
-        Business logic for getting active sessions summary.
-
-        Returns:
-            SuccessResponse with active sessions summary
-        """
-        try:
-            # Get active sessions count using correct method name
-            active_count = await self.session_manager.get_active_session_count()
-
-            summary_data = {
-                "active_sessions": active_count,
-                "timestamp": datetime.utcnow().isoformat(),
-                "system_status": "operational",
-            }
-
-            return create_success_response(
-                message="Active sessions summary retrieved", data=summary_data
-            )
-
-        except Exception as e:
-            logger.error("Failed to get active sessions summary", error=str(e))
-            raise BusinessLogicError("Failed to retrieve sessions summary")
-
     # Private helper methods
 
     async def _validate_session_request(self, request: SessionCreationRequest) -> None:
@@ -314,28 +180,6 @@ class SessionController:
             raise NotFoundError("Session", session_id)
 
         return session
-
-    async def _validate_preferences(self, preferences: Dict[str, Any]) -> None:
-        """Validate session preferences."""
-        allowed_keys = {
-            "theme",
-            "language",
-            "auto_save",
-            "notifications",
-            "code_style",
-            "ai_assistance_level",
-        }
-
-        for key in preferences.keys():
-            if key not in allowed_keys:
-                raise ValidationError(f"Invalid preference key: {key}")
-
-        # Validate specific preference values
-        if "theme" in preferences and preferences["theme"] not in ["light", "dark", "auto"]:
-            raise ValidationError("Theme must be 'light', 'dark', or 'auto'")
-
-        if "language" in preferences and not isinstance(preferences["language"], str):
-            raise ValidationError("Language must be a string")
 
     def _calculate_session_duration(self, session) -> float:
         """Calculate session duration in seconds."""

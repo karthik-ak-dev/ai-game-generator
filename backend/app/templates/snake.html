@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<!--
+==========================================================================
+SNAKE GAME - AI-CONFIGURABLE TEMPLATE
+==========================================================================
+
+This template is designed for AI agents to easily understand and modify.
+ALL POSSIBLE MODIFICATIONS ARE DOCUMENTED BELOW WITH SAFE VALUE RANGES.
+
+MODIFICATION GUIDE FOR AI AGENTS:
+==========================================================================
+
+1. GAME MECHANICS (GAME_CONFIG.game):
+   - gridSize: 10-40 (size of each grid cell, smaller=more detailed)
+   - speed: 50-500 (game speed in ms, lower=faster)
+   - initialLength: 3-10 (starting snake length)
+   - wraparound: true/false (snake wraps around edges or hits walls)
+
+2. VISUAL SETTINGS (GAME_CONFIG.visual):
+   - backgroundColor: any hex color (game background)
+   - gridLines: true/false (show grid lines)
+   - gridLineColor: any hex color (grid line color)
+   - borderWidth: 0-10 (border thickness around game area)
+
+3. SNAKE SETTINGS (GAME_CONFIG.snake):
+   - headColor: any hex color (snake head color)
+   - bodyColor: any hex color (snake body color)
+   - headSize: 0.8-1.0 (head size relative to grid cell)
+   - bodySize: 0.8-1.0 (body size relative to grid cell)
+   - gradient: true/false (gradient effect on snake)
+
+4. FOOD SETTINGS (GAME_CONFIG.food):
+   - color: any hex color (food color)
+   - size: 0.6-1.0 (food size relative to grid cell)
+   - shape: 'circle'/'square'/'diamond' (food shape)
+   - glow: true/false (glowing effect)
+
+5. CANVAS SETTINGS (GAME_CONFIG.canvas):
+   - width: 400-800 (game width in pixels)
+   - height: 400-800 (game height in pixels)
+
+6. EFFECTS SETTINGS (GAME_CONFIG.effects):
+   - particles: true/false (particle effects on food eat)
+   - particleCount: 0-20 (particles per food eaten)
+   - scoreAnimation: true/false (animated score increase)
+
+SAFE MODIFICATION EXAMPLES:
+==========================================================================
+- "Make snake faster": Change GAME_CONFIG.game.speed to 100
+- "Bigger grid": Change GAME_CONFIG.game.gridSize to 30
+- "Red snake": Change GAME_CONFIG.snake.headColor to '#ff0000'
+- "Blue food": Change GAME_CONFIG.food.color to '#0066ff'
+- "Dark theme": Change GAME_CONFIG.visual.backgroundColor to '#2c3e50'
+- "No walls": Change GAME_CONFIG.game.wraparound to true
+- "Longer starting snake": Change GAME_CONFIG.game.initialLength to 8
+- "Circle food": Change GAME_CONFIG.food.shape to 'circle'
+
+WARNING: DO NOT MODIFY:
+==========================================================================
+- Class structure and method names
+- Event listener setup
+- Game loop logic
+- Canvas context operations
+- Local storage keys
+- Direction constants
+- Collision detection logic
+
+==========================================================================
+AI AGENT QUICK REFERENCE TABLE:
+==========================================================================
+
+USER REQUEST                    → MODIFICATION
+---------------------------------------------------------------------
+"Make snake faster"             → GAME_CONFIG.game.speed = 100
+"Make snake slower"             → GAME_CONFIG.game.speed = 300
+"Red snake"                     → GAME_CONFIG.snake.headColor = '#ff0000'
+"Green snake"                   → GAME_CONFIG.snake.bodyColor = '#00ff00'
+"Blue food"                     → GAME_CONFIG.food.color = '#0066ff'
+"Bigger snake"                  → GAME_CONFIG.snake.headSize = 1.0
+"Smaller food"                  → GAME_CONFIG.food.size = 0.7
+"Dark theme"                    → GAME_CONFIG.visual.backgroundColor = '#2c3e50'
+"No walls"                      → GAME_CONFIG.game.wraparound = true
+"With walls"                    → GAME_CONFIG.game.wraparound = false
+"Bigger game"                   → GAME_CONFIG.canvas.width/height = 600
+"Show grid"                     → GAME_CONFIG.visual.gridLines = true
+"Hide grid"                     → GAME_CONFIG.visual.gridLines = false
+"Circle food"                   → GAME_CONFIG.food.shape = 'circle'
+"Square food"                   → GAME_CONFIG.food.shape = 'square'
+"More particles"                → GAME_CONFIG.effects.particleCount = 15
+"No effects"                    → GAME_CONFIG.effects.particles = false
+"Longer starting snake"         → GAME_CONFIG.game.initialLength = 8
+"Gradient snake"                → GAME_CONFIG.snake.gradient = true
+"Glowing food"                  → GAME_CONFIG.food.glow = true
+
+==========================================================================
+-->
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake Game - AI-Configurable Template</title>
+  <style>
+    /* ==============================================
+       CSS STYLES - SAFE COLOR & LAYOUT MODIFICATION ZONE
+       All colors marked with MODIFY can be safely changed
+       ============================================== */
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      /* MODIFY: Page background */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    #gameContainer {
+      position: relative;
+      border: 3px solid #fff;
+      /* MODIFY: Game border color */
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+      background: #000;
+      /* MODIFY: Container background */
+    }
+
+    canvas {
+      display: block;
+      background: #1a1a1a;
+      /* MODIFY: Canvas background (fallback) */
+    }
+
+    #gameUI {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      /* MODIFY: Screen overlay transparency */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      /* MODIFY: Text color */
+      pointer-events: all;
+    }
+
+    .screen h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+      color: #4CAF50;
+      /* MODIFY: Title color */
+      font-weight: bold;
+    }
+
+    .screen p {
+      font-size: 1.3em;
+      margin: 15px 0;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .btn {
+      background: linear-gradient(45deg, #4CAF50, #45a049);
+      /* MODIFY: Button gradient */
+      border: none;
+      color: white;
+      padding: 15px 30px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 10px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #score {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #4CAF50;
+      /* MODIFY: Score color */
+      font-size: 2em;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    #highScore {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #FFC107;
+      /* MODIFY: High score color */
+      font-size: 1.2em;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      /* MODIFY: Controls text color */
+      font-size: 0.9em;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    @media (max-width: 600px) {
+      #gameContainer {
+        border: none;
+        border-radius: 0;
+      }
+
+      canvas {
+        width: 100vw;
+        height: 100vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
+    <div id="gameUI">
+      <div id="score">Score: 0</div>
+      <div id="highScore">Best: 0</div>
+      <div id="controls">Use ARROW KEYS or WASD to move</div>
+
+      <div id="startScreen" class="screen">
+        <h1>🐍 SNAKE</h1>
+        <p>Use arrow keys or WASD to control your snake</p>
+        <p>Eat the food to grow longer and score points</p>
+        <p>Don't hit the walls or yourself!</p>
+        <button class="btn" onclick="game.start()">START GAME</button>
+      </div>
+
+      <div id="gameOverScreen" class="screen hidden">
+        <h1>Game Over!</h1>
+        <p id="finalScore">Score: 0</p>
+        <p id="finalLength">Length: 0</p>
+        <p id="newBest" class="hidden">🎉 NEW HIGH SCORE! 🎉</p>
+        <button class="btn" onclick="game.restart()">PLAY AGAIN</button>
+        <button class="btn" onclick="game.showStart()">MAIN MENU</button>
+      </div>
+
+      <div id="pauseScreen" class="screen hidden">
+        <h1>Paused</h1>
+        <p>Press SPACE to resume</p>
+        <button class="btn" onclick="game.resume()">RESUME</button>
+        <button class="btn" onclick="game.showStart()">MAIN MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==============================================
+       GAME CONFIGURATION - SAFE MODIFICATION ZONE
+       ============================================== */
+
+    const GAME_CONFIG = {
+      // CANVAS SETTINGS - Safe range: 400-800 width/height
+      canvas: {
+        width: 500,            // MODIFY: Game width in pixels (400-800)
+        height: 500            // MODIFY: Game height in pixels (400-800)
+      },
+
+      // GAME MECHANICS - Controls core gameplay
+      game: {
+        gridSize: 20,          // MODIFY: Size of each grid cell (10-40) - smaller=more detailed
+        speed: 150,            // MODIFY: Game speed in milliseconds (50-500) - lower=faster
+        initialLength: 4,      // MODIFY: Starting snake length (3-10)
+        wraparound: false      // MODIFY: Snake wraps around edges (true) or hits walls (false)
+      },
+
+      // VISUAL SETTINGS - Controls appearance
+      visual: {
+        backgroundColor: '#1a1a1a',  // MODIFY: Game background color (any hex color)
+        gridLines: false,            // MODIFY: Show grid lines (true/false)
+        gridLineColor: '#333',       // MODIFY: Grid line color (any hex color)
+        borderWidth: 2               // MODIFY: Border thickness around game area (0-10)
+      },
+
+      // SNAKE SETTINGS - Controls snake appearance
+      snake: {
+        headColor: '#4CAF50',        // MODIFY: Snake head color (any hex color)
+        bodyColor: '#45a049',        // MODIFY: Snake body color (any hex color)
+        headSize: 0.9,               // MODIFY: Head size relative to grid (0.8-1.0)
+        bodySize: 0.85,              // MODIFY: Body size relative to grid (0.8-1.0)
+        gradient: true               // MODIFY: Gradient effect on snake (true/false)
+      },
+
+      // FOOD SETTINGS - Controls food appearance
+      food: {
+        color: '#ff4757',            // MODIFY: Food color (any hex color)
+        size: 0.8,                   // MODIFY: Food size relative to grid (0.6-1.0)
+        shape: 'circle',             // MODIFY: Food shape ('circle'/'square'/'diamond')
+        glow: true                   // MODIFY: Glowing effect (true/false)
+      },
+
+      // EFFECTS SETTINGS - Controls visual effects
+      effects: {
+        particles: true,             // MODIFY: Particle effects on food eat (true/false)
+        particleCount: 8,            // MODIFY: Particles per food eaten (0-20)
+        scoreAnimation: true         // MODIFY: Animated score increase (true/false)
+      }
+    };
+
+    /* ==============================================
+       CONFIG VALIDATION - Prevents breaking changes
+       ============================================== */
+
+    function validateConfig() {
+      const c = GAME_CONFIG;
+
+      // Ensure safe ranges to prevent game breaking
+      c.canvas.width = Math.max(400, Math.min(800, c.canvas.width));
+      c.canvas.height = Math.max(400, Math.min(800, c.canvas.height));
+      c.game.gridSize = Math.max(10, Math.min(40, c.game.gridSize));
+      c.game.speed = Math.max(50, Math.min(500, c.game.speed));
+      c.game.initialLength = Math.max(3, Math.min(10, c.game.initialLength));
+      c.snake.headSize = Math.max(0.8, Math.min(1.0, c.snake.headSize));
+      c.snake.bodySize = Math.max(0.8, Math.min(1.0, c.snake.bodySize));
+      c.food.size = Math.max(0.6, Math.min(1.0, c.food.size));
+      c.effects.particleCount = Math.max(0, Math.min(20, c.effects.particleCount));
+      c.visual.borderWidth = Math.max(0, Math.min(10, c.visual.borderWidth));
+    }
+
+    // Auto-validate config on load
+    validateConfig();
+
+    /* ==============================================
+       DIRECTION CONSTANTS - DO NOT MODIFY
+       ============================================== */
+
+    const DIRECTIONS = {
+      UP: { x: 0, y: -1 },
+      DOWN: { x: 0, y: 1 },
+      LEFT: { x: -1, y: 0 },
+      RIGHT: { x: 1, y: 0 }
+    };
+
+    /* ==============================================
+       PARTICLE SYSTEM CLASS - Visual effects
+       ============================================== */
+
+    class Particle {
+      constructor(x, y, color = '#fff') {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 6;  // Random horizontal velocity
+        this.vy = (Math.random() - 0.5) * 6;  // Random vertical velocity
+        this.color = color;
+        this.life = 1.0;                      // Particle life (1.0 = fully visible)
+        this.decay = 0.02;                    // How fast particle fades
+        this.size = Math.random() * 4 + 2;   // Random particle size
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;  // Slow down over time
+        this.vy *= 0.98;
+        this.life -= this.decay;
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      isDead() {
+        return this.life <= 0;
+      }
+    }
+
+    /* ==============================================
+       FOOD CLASS - Game food/apple
+       ============================================== */
+
+    class Food {
+      constructor(game) {
+        this.game = game;
+        this.gridCols = Math.floor(this.game.width / GAME_CONFIG.game.gridSize);
+        this.gridRows = Math.floor(this.game.height / GAME_CONFIG.game.gridSize);
+        this.respawn();
+      }
+
+      respawn() {
+        do {
+          this.x = Math.floor(Math.random() * this.gridCols);
+          this.y = Math.floor(Math.random() * this.gridRows);
+        } while (this.game.snake.isPositionOccupied(this.x, this.y));
+      }
+
+      draw(ctx) {
+        const pixelX = this.x * GAME_CONFIG.game.gridSize;
+        const pixelY = this.y * GAME_CONFIG.game.gridSize;
+        const size = GAME_CONFIG.game.gridSize * GAME_CONFIG.food.size;
+        const centerX = pixelX + GAME_CONFIG.game.gridSize / 2;
+        const centerY = pixelY + GAME_CONFIG.game.gridSize / 2;
+
+        ctx.save();
+
+        // Glow effect
+        if (GAME_CONFIG.food.glow) {
+          ctx.shadowColor = GAME_CONFIG.food.color;
+          ctx.shadowBlur = 15;
+        }
+
+        ctx.fillStyle = GAME_CONFIG.food.color;
+
+        // Draw based on shape
+        switch (GAME_CONFIG.food.shape) {
+          case 'circle':
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+
+          case 'square':
+            ctx.fillRect(centerX - size / 2, centerY - size / 2, size, size);
+            break;
+
+          case 'diamond':
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - size / 2);
+            ctx.lineTo(centerX + size / 2, centerY);
+            ctx.lineTo(centerX, centerY + size / 2);
+            ctx.lineTo(centerX - size / 2, centerY);
+            ctx.closePath();
+            ctx.fill();
+            break;
+        }
+
+        ctx.restore();
+      }
+    }
+
+    /* ==============================================
+       SNAKE CLASS - Main player character
+       ============================================== */
+
+    class Snake {
+      constructor(game) {
+        this.game = game;
+        this.gridCols = Math.floor(this.game.width / GAME_CONFIG.game.gridSize);
+        this.gridRows = Math.floor(this.game.height / GAME_CONFIG.game.gridSize);
+        this.reset();
+      }
+
+      reset() {
+        // Start snake in center
+        const centerX = Math.floor(this.gridCols / 2);
+        const centerY = Math.floor(this.gridRows / 2);
+
+        this.body = [];
+        for (let i = 0; i < GAME_CONFIG.game.initialLength; i++) {
+          this.body.push({ x: centerX - i, y: centerY });
+        }
+
+        this.direction = DIRECTIONS.RIGHT;
+        this.nextDirection = DIRECTIONS.RIGHT;
+      }
+
+      setDirection(newDirection) {
+        // Prevent reversing into self
+        if (newDirection.x === -this.direction.x && newDirection.y === -this.direction.y) {
+          return;
+        }
+        this.nextDirection = newDirection;
+      }
+
+      update() {
+        this.direction = this.nextDirection;
+
+        // Calculate new head position
+        const head = { ...this.body[0] };
+        head.x += this.direction.x;
+        head.y += this.direction.y;
+
+        // Handle wraparound or wall collision
+        if (GAME_CONFIG.game.wraparound) {
+          if (head.x < 0) head.x = this.gridCols - 1;
+          if (head.x >= this.gridCols) head.x = 0;
+          if (head.y < 0) head.y = this.gridRows - 1;
+          if (head.y >= this.gridRows) head.y = 0;
+        } else {
+          // Check wall collision
+          if (head.x < 0 || head.x >= this.gridCols || head.y < 0 || head.y >= this.gridRows) {
+            this.game.gameOver();
+            return;
+          }
+        }
+
+        // Check self collision
+        if (this.isPositionOccupied(head.x, head.y)) {
+          this.game.gameOver();
+          return;
+        }
+
+        // Add new head
+        this.body.unshift(head);
+
+        // Check food collision
+        if (head.x === this.game.food.x && head.y === this.game.food.y) {
+          this.game.eatFood();
+        } else {
+          // Remove tail if no food eaten
+          this.body.pop();
+        }
+      }
+
+      grow() {
+        // Add segment at tail
+        const tail = this.body[this.body.length - 1];
+        this.body.push({ ...tail });
+      }
+
+      isPositionOccupied(x, y) {
+        return this.body.some(segment => segment.x === x && segment.y === y);
+      }
+
+      draw(ctx) {
+        this.body.forEach((segment, index) => {
+          const pixelX = segment.x * GAME_CONFIG.game.gridSize;
+          const pixelY = segment.y * GAME_CONFIG.game.gridSize;
+          const isHead = index === 0;
+          const size = GAME_CONFIG.game.gridSize * (isHead ? GAME_CONFIG.snake.headSize : GAME_CONFIG.snake.bodySize);
+          const centerX = pixelX + GAME_CONFIG.game.gridSize / 2;
+          const centerY = pixelY + GAME_CONFIG.game.gridSize / 2;
+
+          ctx.save();
+
+          // Gradient effect
+          if (GAME_CONFIG.snake.gradient) {
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, size / 2);
+            if (isHead) {
+              gradient.addColorStop(0, GAME_CONFIG.snake.headColor);
+              gradient.addColorStop(1, this.darkenColor(GAME_CONFIG.snake.headColor, 0.3));
+            } else {
+              gradient.addColorStop(0, GAME_CONFIG.snake.bodyColor);
+              gradient.addColorStop(1, this.darkenColor(GAME_CONFIG.snake.bodyColor, 0.3));
+            }
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = isHead ? GAME_CONFIG.snake.headColor : GAME_CONFIG.snake.bodyColor;
+          }
+
+          // Draw segment
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Head details
+          if (isHead) {
+            this.drawEyes(ctx, centerX, centerY, size);
+          }
+
+          ctx.restore();
+        });
+      }
+
+      drawEyes(ctx, x, y, size) {
+        const eyeSize = size * 0.15;
+        const eyeOffset = size * 0.2;
+
+        ctx.fillStyle = '#fff';
+
+        // Left eye
+        ctx.beginPath();
+        ctx.arc(x - eyeOffset, y - eyeOffset, eyeSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Right eye
+        ctx.beginPath();
+        ctx.arc(x + eyeOffset, y - eyeOffset, eyeSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eye pupils
+        ctx.fillStyle = '#000';
+        const pupilSize = eyeSize * 0.6;
+
+        ctx.beginPath();
+        ctx.arc(x - eyeOffset, y - eyeOffset, pupilSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x + eyeOffset, y - eyeOffset, pupilSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      darkenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.max(0, parseInt(hex.substr(0, 2), 16) * (1 - amount));
+        const g = Math.max(0, parseInt(hex.substr(2, 2), 16) * (1 - amount));
+        const b = Math.max(0, parseInt(hex.substr(4, 2), 16) * (1 - amount));
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+      }
+    }
+
+    /* ==============================================
+       MAIN GAME CLASS - Core game logic
+       ============================================== */
+
+    class SnakeGame {
+      constructor() {
+        // Initialize canvas and context
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = GAME_CONFIG.canvas.width;
+        this.height = GAME_CONFIG.canvas.height;
+
+        // Set canvas size
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        // Game state management
+        this.state = 'start'; // start, playing, paused, gameOver
+        this.score = 0;
+        this.highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
+        this.gameLoopId = null;
+
+        // Initialize game objects
+        this.snake = new Snake(this);
+        this.food = new Food(this);
+        this.particles = [];
+
+        this.setupEventListeners();
+        this.updateUI();
+      }
+
+      setupEventListeners() {
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+          switch (e.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+              e.preventDefault();
+              if (this.state === 'playing') {
+                this.snake.setDirection(DIRECTIONS.UP);
+              } else {
+                this.handleInput();
+              }
+              break;
+
+            case 'ArrowDown':
+            case 'KeyS':
+              e.preventDefault();
+              if (this.state === 'playing') {
+                this.snake.setDirection(DIRECTIONS.DOWN);
+              } else {
+                this.handleInput();
+              }
+              break;
+
+            case 'ArrowLeft':
+            case 'KeyA':
+              e.preventDefault();
+              if (this.state === 'playing') {
+                this.snake.setDirection(DIRECTIONS.LEFT);
+              }
+              break;
+
+            case 'ArrowRight':
+            case 'KeyD':
+              e.preventDefault();
+              if (this.state === 'playing') {
+                this.snake.setDirection(DIRECTIONS.RIGHT);
+              }
+              break;
+
+            case 'Space':
+              e.preventDefault();
+              if (this.state === 'playing') {
+                this.pause();
+              } else if (this.state === 'paused') {
+                this.resume();
+              } else {
+                this.handleInput();
+              }
+              break;
+          }
+        });
+      }
+
+      handleInput() {
+        switch (this.state) {
+          case 'start':
+            this.start();
+            break;
+          case 'gameOver':
+            this.restart();
+            break;
+        }
+      }
+
+      start() {
+        this.state = 'playing';
+        this.score = 0;
+        this.snake.reset();
+        this.food.respawn();
+        this.particles = [];
+        this.updateUI();
+        this.hideAllScreens();
+        this.startGameLoop();
+      }
+
+      pause() {
+        if (this.state === 'playing') {
+          this.state = 'paused';
+          this.stopGameLoop();
+          document.getElementById('pauseScreen').classList.remove('hidden');
+        }
+      }
+
+      resume() {
+        if (this.state === 'paused') {
+          this.state = 'playing';
+          this.hideAllScreens();
+          this.startGameLoop();
+        }
+      }
+
+      gameOver() {
+        this.state = 'gameOver';
+        this.stopGameLoop();
+
+        // Add explosion particles
+        const head = this.snake.body[0];
+        if (head && GAME_CONFIG.effects.particles) {
+          for (let i = 0; i < 30; i++) {
+            this.particles.push(new Particle(
+              (head.x + 0.5) * GAME_CONFIG.game.gridSize,
+              (head.y + 0.5) * GAME_CONFIG.game.gridSize,
+              GAME_CONFIG.snake.headColor
+            ));
+          }
+        }
+
+        // Update high score if needed
+        const isNewBest = this.score > this.highScore;
+        if (isNewBest) {
+          this.highScore = this.score;
+          localStorage.setItem('snakeHighScore', this.highScore);
+          document.getElementById('newBest').classList.remove('hidden');
+        } else {
+          document.getElementById('newBest').classList.add('hidden');
+        }
+
+        document.getElementById('finalScore').textContent = `Score: ${this.score}`;
+        document.getElementById('finalLength').textContent = `Length: ${this.snake.body.length}`;
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        this.updateUI();
+      }
+
+      eatFood() {
+        this.score += 10;
+        this.snake.grow();
+
+        // Add particles
+        if (GAME_CONFIG.effects.particles) {
+          for (let i = 0; i < GAME_CONFIG.effects.particleCount; i++) {
+            this.particles.push(new Particle(
+              (this.food.x + 0.5) * GAME_CONFIG.game.gridSize,
+              (this.food.y + 0.5) * GAME_CONFIG.game.gridSize,
+              GAME_CONFIG.food.color
+            ));
+          }
+        }
+
+        this.food.respawn();
+        this.updateUI();
+      }
+
+      restart() {
+        this.hideAllScreens();
+        this.start();
+      }
+
+      showStart() {
+        this.state = 'start';
+        this.stopGameLoop();
+        this.hideAllScreens();
+        document.getElementById('startScreen').classList.remove('hidden');
+      }
+
+      hideAllScreens() {
+        document.querySelectorAll('.screen').forEach(screen => {
+          screen.classList.add('hidden');
+        });
+      }
+
+      updateUI() {
+        document.getElementById('score').textContent = `Score: ${this.score}`;
+        document.getElementById('highScore').textContent = `Best: ${this.highScore}`;
+      }
+
+      startGameLoop() {
+        this.stopGameLoop();
+        this.gameLoopId = setInterval(() => {
+          this.update();
+          this.draw();
+        }, GAME_CONFIG.game.speed);
+      }
+
+      stopGameLoop() {
+        if (this.gameLoopId) {
+          clearInterval(this.gameLoopId);
+          this.gameLoopId = null;
+        }
+      }
+
+      update() {
+        if (this.state !== 'playing') return;
+
+        this.snake.update();
+
+        // Update particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const particle = this.particles[i];
+          particle.update();
+          if (particle.isDead()) {
+            this.particles.splice(i, 1);
+          }
+        }
+      }
+
+      draw() {
+        // Clear canvas
+        this.ctx.fillStyle = GAME_CONFIG.visual.backgroundColor;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // Draw grid lines if enabled
+        if (GAME_CONFIG.visual.gridLines) {
+          this.drawGrid();
+        }
+
+        // Draw border if enabled
+        if (GAME_CONFIG.visual.borderWidth > 0) {
+          this.drawBorder();
+        }
+
+        // Draw game objects
+        this.food.draw(this.ctx);
+        this.snake.draw(this.ctx);
+
+        // Draw particles
+        this.particles.forEach(particle => particle.draw(this.ctx));
+      }
+
+      drawGrid() {
+        this.ctx.strokeStyle = GAME_CONFIG.visual.gridLineColor;
+        this.ctx.lineWidth = 1;
+
+        // Vertical lines
+        for (let x = 0; x <= this.width; x += GAME_CONFIG.game.gridSize) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(x, 0);
+          this.ctx.lineTo(x, this.height);
+          this.ctx.stroke();
+        }
+
+        // Horizontal lines
+        for (let y = 0; y <= this.height; y += GAME_CONFIG.game.gridSize) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(0, y);
+          this.ctx.lineTo(this.width, y);
+          this.ctx.stroke();
+        }
+      }
+
+      drawBorder() {
+        this.ctx.strokeStyle = GAME_CONFIG.visual.gridLineColor;
+        this.ctx.lineWidth = GAME_CONFIG.visual.borderWidth;
+        this.ctx.strokeRect(0, 0, this.width, this.height);
+      }
+    }
+
+    /* ==============================================
+       GAME INITIALIZATION
+       ============================================== */
+
+    // Start the game
+    const game = new SnakeGame();
+
+    /* ==========================================================================
+       COMPLETE AI AGENT MODIFICATION REFERENCE GUIDE
+       ==========================================================================
+       
+       This section provides AI agents with comprehensive modification examples
+       and ensures all changes are safe and won't break the game.
+       
+       ==========================================================================
+       QUICK MODIFICATION REFERENCE:
+       ==========================================================================
+       
+       SPEED & DIFFICULTY MODIFICATIONS:
+       ---------------------------------
+       Make faster:               GAME_CONFIG.game.speed = 100
+       Make slower:               GAME_CONFIG.game.speed = 250
+       Bigger grid cells:         GAME_CONFIG.game.gridSize = 30
+       Smaller grid cells:        GAME_CONFIG.game.gridSize = 15
+       Longer starting snake:     GAME_CONFIG.game.initialLength = 8
+       No walls (wraparound):     GAME_CONFIG.game.wraparound = true
+       
+       SNAKE VISUAL MODIFICATIONS:
+       ---------------------------
+       Red snake:                 GAME_CONFIG.snake.headColor = '#ff0000'
+       Green snake:               GAME_CONFIG.snake.bodyColor = '#00ff00'
+       Blue snake:                GAME_CONFIG.snake.headColor = '#0066ff'
+       Bigger snake:              GAME_CONFIG.snake.headSize = 1.0
+       Smaller snake:             GAME_CONFIG.snake.bodySize = 0.8
+       No gradient:               GAME_CONFIG.snake.gradient = false
+       
+       FOOD VISUAL MODIFICATIONS:
+       --------------------------
+       Red food:                  GAME_CONFIG.food.color = '#ff0000'
+       Blue food:                 GAME_CONFIG.food.color = '#0066ff'
+       Yellow food:               GAME_CONFIG.food.color = '#ffff00'
+       Circle food:               GAME_CONFIG.food.shape = 'circle'
+       Square food:               GAME_CONFIG.food.shape = 'square'
+       Diamond food:              GAME_CONFIG.food.shape = 'diamond'
+       Bigger food:               GAME_CONFIG.food.size = 0.9
+       No glow:                   GAME_CONFIG.food.glow = false
+       
+       BACKGROUND & THEME MODIFICATIONS:
+       ---------------------------------
+       Dark theme:                GAME_CONFIG.visual.backgroundColor = '#2c3e50'
+       Light theme:               GAME_CONFIG.visual.backgroundColor = '#ecf0f1'
+       Blue theme:                GAME_CONFIG.visual.backgroundColor = '#3498db'
+       Green theme:               GAME_CONFIG.visual.backgroundColor = '#27ae60'
+       Show grid:                 GAME_CONFIG.visual.gridLines = true
+       Hide grid:                 GAME_CONFIG.visual.gridLines = false
+       Thick border:              GAME_CONFIG.visual.borderWidth = 5
+       
+       EFFECTS MODIFICATIONS:
+       ----------------------
+       More particles:            GAME_CONFIG.effects.particleCount = 15
+       No particles:              GAME_CONFIG.effects.particles = false
+       No score animation:        GAME_CONFIG.effects.scoreAnimation = false
+       
+       CANVAS SIZE MODIFICATIONS:
+       --------------------------
+       Bigger game:               GAME_CONFIG.canvas.width = 600, height = 600
+       Rectangular:               GAME_CONFIG.canvas.width = 700, height = 500
+       Mobile size:               GAME_CONFIG.canvas.width = 400, height = 600
+       
+       ==========================================================================
+       COMMON USER REQUESTS AND SOLUTIONS:
+       ==========================================================================
+       
+       "Make the snake faster"
+       → GAME_CONFIG.game.speed = 100
+       
+       "Make the snake red"
+       → GAME_CONFIG.snake.headColor = '#ff0000'
+       → GAME_CONFIG.snake.bodyColor = '#cc0000'
+       
+       "Make the food blue and bigger"
+       → GAME_CONFIG.food.color = '#0066ff'
+       → GAME_CONFIG.food.size = 0.9
+       
+       "Dark theme with green snake"
+       → GAME_CONFIG.visual.backgroundColor = '#2c3e50'
+       → GAME_CONFIG.snake.headColor = '#4CAF50'
+       
+       "No walls, snake goes through edges"
+       → GAME_CONFIG.game.wraparound = true
+       
+       "Show grid lines"
+       → GAME_CONFIG.visual.gridLines = true
+       
+       "Circle food instead of current shape"
+       → GAME_CONFIG.food.shape = 'circle'
+       
+       "Longer starting snake"
+       → GAME_CONFIG.game.initialLength = 8
+       
+       "No special effects"
+       → GAME_CONFIG.effects.particles = false
+       → GAME_CONFIG.food.glow = false
+       
+       "Bigger game area"
+       → GAME_CONFIG.canvas.width = 600
+       → GAME_CONFIG.canvas.height = 600
+       
+       ==========================================================================
+       SAFETY VALIDATION:
+       ==========================================================================
+       
+       The validateConfig() function automatically prevents unsafe values:
+       - Canvas dimensions are limited to 400-800 range
+       - Grid size is limited to 10-40 range
+       - Speed is limited to 50-500ms range
+       - All size values are kept within reasonable bounds
+       - Particle counts are limited to prevent performance issues
+       
+       SAFE TO MODIFY:
+       ✅ GAME_CONFIG values (within documented ranges)
+       ✅ CSS colors and fonts
+       ✅ HTML text content
+       ✅ Button text and labels
+       
+       DO NOT MODIFY:
+       ❌ Class structures and method names
+       ❌ Event listener implementations
+       ❌ Game loop logic
+       ❌ Direction constants
+       ❌ Collision detection logic
+       ❌ Local storage mechanisms
+       
+       ==========================================================================
+       MODIFICATION TEMPLATE FOR AI AGENTS:
+       ==========================================================================
+       
+       When modifying this template:
+       1. Identify the user's request category (speed, visual, theme, etc.)
+       2. Find the appropriate GAME_CONFIG section
+       3. Make changes within the documented safe ranges
+       4. If changing colors, use valid hex codes or CSS color names
+       5. Test that the modification makes logical sense
+       
+       Example modification process:
+       User: "Make the snake blue and the game faster"
+       1. Identify: Visual change + speed change
+       2. Modify: GAME_CONFIG.snake.headColor = '#0066ff'
+       3. Modify: GAME_CONFIG.snake.bodyColor = '#004499'
+       4. Modify: GAME_CONFIG.game.speed = 120
+       5. Result: Blue snake moving faster
+       
+       ========================================================================== */
+  </script>
+</body>
+
+</html>

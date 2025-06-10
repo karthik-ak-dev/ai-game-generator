@@ -1,14 +1,13 @@
 """
-Game Controller - Enterprise Standard
-Handles business logic orchestration for game operations.
-Separates business logic from HTTP routing concerns.
+Game Controller for Core AI Game Generation Functionality
+Handles essential game operations needed for core workflow.
 """
 
 import time
 
 # Standard library imports
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Third-party imports
 import structlog
@@ -17,7 +16,6 @@ import structlog
 from ..exceptions import BusinessLogicError, ValidationError
 from ..models.game_models import GameGenerationRequest, GameGenerationResult
 from ..models.response_models import SuccessResponse, create_success_response
-from ..services.code_validator import CodeValidator
 from ..services.game_generator import GameGenerationError, GameGenerator
 from ..services.session_manager import SessionManager
 from ..utils.constants import ERROR_MESSAGES
@@ -27,20 +25,19 @@ logger = structlog.get_logger(__name__)
 
 class GameController:
     """
-    Enterprise-standard controller for game operations.
-    Orchestrates business logic without HTTP concerns.
+    Core controller for game operations.
+    Handles essential game generation and retrieval only.
     """
 
     def __init__(self):
         self.game_generator = GameGenerator()
         self.session_manager = SessionManager()
-        self.code_validator = CodeValidator()
 
     async def create_game(
         self, request: GameGenerationRequest, session_id: Optional[str] = None
     ) -> SuccessResponse:
         """
-        Business logic for game creation.
+        Generate a new game from user request.
 
         Args:
             request: Game generation request
@@ -79,18 +76,8 @@ class GameController:
                     generation_result.error_message or "Game generation failed"
                 )
 
-            # Validate generated code
-            is_valid, validation_issues = self.game_generator.validate_game_code(
-                generation_result.game_state.code
-            )
-
-            if not is_valid and validation_issues:
-                logger.warning("Generated code has validation issues", issues=validation_issues)
-
-            # Store game in database (would be implemented)
-            game_data = self._build_game_response_data(
-                generation_result, start_time, is_valid, validation_issues
-            )
+            # Build response data
+            game_data = self._build_game_response_data(generation_result, start_time)
 
             return create_success_response(message="Game created successfully", data=game_data)
 
@@ -105,7 +92,7 @@ class GameController:
 
     async def get_game_info(self, session_id: str, game_id: str) -> SuccessResponse:
         """
-        Business logic for retrieving game information.
+        Retrieve game information.
 
         Args:
             session_id: Session identifier
@@ -119,7 +106,13 @@ class GameController:
             await self._validate_game_access(session_id, game_id)
 
             # Get game information (placeholder for now)
-            game_info = await self._get_game_information(session_id, game_id)
+            game_info = {
+                "game_id": game_id,
+                "session_id": session_id,
+                "created_at": datetime.utcnow().isoformat(),
+                "status": "active",
+                "version": 1,
+            }
 
             return create_success_response(
                 message="Game information retrieved successfully", data=game_info
@@ -133,82 +126,7 @@ class GameController:
             )
             raise BusinessLogicError("Failed to retrieve game information")
 
-    async def validate_game_code(self, session_id: str, game_id: str) -> SuccessResponse:
-        """
-        Business logic for game code validation.
-
-        Args:
-            session_id: Session identifier
-            game_id: Game identifier
-
-        Returns:
-            SuccessResponse with validation results
-        """
-        try:
-            # Validate access
-            await self._validate_game_access(session_id, game_id)
-
-            # Get game code and validate
-            game_code = await self._get_game_code(session_id, game_id)
-            validation_result = await self.code_validator.validate_game_code(game_code)
-
-            return create_success_response(
-                message="Game validation completed",
-                data={
-                    "game_id": game_id,
-                    "is_valid": validation_result.is_valid,
-                    "errors": validation_result.errors,
-                    "warnings": validation_result.warnings,
-                    "security_issues": validation_result.security_issues,
-                },
-            )
-
-        except ValidationError:
-            raise
-        except Exception as e:
-            logger.error(
-                "Game validation failed", session_id=session_id, game_id=game_id, error=str(e)
-            )
-            raise BusinessLogicError("Game validation failed")
-
-    async def get_session_analytics(self, session_id: str) -> SuccessResponse:
-        """
-        Business logic for session analytics.
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            SuccessResponse with analytics data
-        """
-        try:
-            # Validate session
-            session = await self.session_manager.get_session(session_id)
-            if not session:
-                raise ValidationError("Invalid session ID")
-
-            # Get metrics
-            metrics = await self.session_manager.get_session_metrics(session_id)
-
-            analytics_data = {
-                "session_id": session_id,
-                "games_created": session.generation_count,
-                "modifications_made": session.modifications_made,
-                "session_duration": self._calculate_session_duration(session),
-                "metrics": metrics.dict() if metrics else None,
-            }
-
-            return create_success_response(
-                message="Analytics retrieved successfully", data=analytics_data
-            )
-
-        except ValidationError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get analytics", session_id=session_id, error=str(e))
-            raise BusinessLogicError("Failed to retrieve analytics")
-
-    # Private helper methods for business logic
+    # Private helper methods
 
     async def _validate_game_request(self, request: GameGenerationRequest) -> None:
         """Validate game generation request."""
@@ -227,33 +145,8 @@ class GameController:
         if game_id not in session.games:
             raise ValidationError("Game not found in session")
 
-    async def _handle_session_management(self, session_id: str, game_state) -> str:
-        """Handle session and game state management."""
-        await self.session_manager.add_game_to_session(session_id, game_state)
-        return session_id
-
-    async def _get_game_information(self, session_id: str, game_id: str) -> Dict[str, Any]:
-        """Get comprehensive game information."""
-        # Placeholder - would load from storage
-        return {
-            "game_id": game_id,
-            "session_id": session_id,
-            "created_at": datetime.utcnow().isoformat(),
-            "status": "active",
-            "version": 1,
-        }
-
-    async def _get_game_code(self, session_id: str, game_id: str) -> str:
-        """Retrieve game code for validation."""
-        # Placeholder - would load from storage
-        return "<html><!-- Game code placeholder --></html>"
-
     def _build_game_response_data(
-        self,
-        result: GameGenerationResult,
-        start_time: float,
-        is_valid: bool,
-        validation_issues: List[str],
+        self, result: GameGenerationResult, start_time: float
     ) -> Dict[str, Any]:
         """Build standardized game response data."""
         if not result.game_state:
@@ -275,12 +168,4 @@ class GameController:
             "tokens_used": result.tokens_used or 0,
             "version": game_state.current_version,
             "warnings": result.warnings or [],
-            "is_valid": is_valid,
-            "validation_issues": validation_issues,
         }
-
-    def _calculate_session_duration(self, session) -> float:
-        """Calculate session duration in seconds."""
-        if not session.session_info.created_at:
-            return 0.0
-        return (datetime.utcnow() - session.session_info.created_at).total_seconds()

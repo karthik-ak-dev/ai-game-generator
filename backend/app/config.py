@@ -4,29 +4,30 @@ Handles environment variables, validation, and application settings.
 """
 
 # Standard library imports
-import os
 from functools import lru_cache
 from typing import List, Optional, Set
 
 # Third-party imports
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
     """Core application settings."""
 
-    app_name: str = Field(default="AI Game Generator", env="APP_NAME")
-    app_version: str = Field(default="1.0.0", env="APP_VERSION")
-    debug: bool = Field(default=False, env="DEBUG")
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    environment: str = Field(default="development", env="ENVIRONMENT")
+    model_config = SettingsConfigDict(env_prefix="")
+
+    app_name: str = "AI Game Generator"
+    app_version: str = "1.0.0"
+    debug: bool = False
+    log_level: str = "INFO"
+    environment: str = "development"
 
     # Server Configuration
-    host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=8000, env="PORT")
-    reload: bool = Field(default=False, env="RELOAD")
-    workers: int = Field(default=1, env="WORKERS")
+    host: str = "0.0.0.0"
+    port: int = 8000
+    reload: bool = False
+    workers: int = 1
 
     @field_validator("log_level")
     @classmethod
@@ -48,9 +49,11 @@ class AppSettings(BaseSettings):
 class SecuritySettings(BaseSettings):
     """Security and authentication settings."""
 
-    secret_key: str = Field(default="development-key-not-for-production", env="SECRET_KEY")
-    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    algorithm: str = Field(default="HS256", env="ALGORITHM")
+    model_config = SettingsConfigDict(env_prefix="")
+
+    secret_key: str = "development-key-not-for-production"
+    access_token_expire_minutes: int = 30
+    algorithm: str = "HS256"
 
     @field_validator("secret_key")
     @classmethod
@@ -63,11 +66,13 @@ class SecuritySettings(BaseSettings):
 class OpenAISettings(BaseSettings):
     """OpenAI API configuration."""
 
-    api_key: str = Field(default="sk-placeholder-set-your-openai-key", env="OPENAI_API_KEY")
-    model: str = Field(default="gpt-4-1106-preview", env="OPENAI_MODEL")
-    max_tokens: int = Field(default=4000, env="OPENAI_MAX_TOKENS")
-    temperature: float = Field(default=0.7, env="OPENAI_TEMPERATURE")
-    timeout: int = Field(default=30, env="OPENAI_TIMEOUT")
+    model_config = SettingsConfigDict(env_prefix="OPENAI_")
+
+    api_key: str = "sk-placeholder-set-your-openai-key"
+    model: str = "gpt-4-1106-preview"
+    max_tokens: int = 4000
+    temperature: float = 0.7
+    timeout: int = 30
 
     @field_validator("temperature")
     @classmethod
@@ -87,13 +92,15 @@ class OpenAISettings(BaseSettings):
 class RedisSettings(BaseSettings):
     """Redis configuration for caching and session storage."""
 
-    host: str = Field(default="localhost", env="REDIS_HOST")
-    port: int = Field(default=6379, env="REDIS_PORT")
-    db: int = Field(default=0, env="REDIS_DB")
-    password: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
-    url: Optional[str] = Field(default=None, env="REDIS_URL")
-    session_ttl: int = Field(default=3600, env="REDIS_SESSION_TTL")
-    cache_ttl: int = Field(default=1800, env="REDIS_CACHE_TTL")
+    model_config = SettingsConfigDict(env_prefix="REDIS_")
+
+    host: str = "localhost"
+    port: int = 6379
+    db: int = 0
+    password: Optional[str] = None
+    url: Optional[str] = None
+    session_ttl: int = 3600
+    cache_ttl: int = 1800
 
     @property
     def connection_url(self) -> str:
@@ -108,45 +115,56 @@ class RedisSettings(BaseSettings):
 class SessionSettings(BaseSettings):
     """Session management configuration."""
 
-    ttl: int = Field(default=3600, env="SESSION_TTL")
-    max_sessions_per_ip: int = Field(default=10, env="MAX_SESSIONS_PER_IP")
+    model_config = SettingsConfigDict(env_prefix="SESSION_")
+
+    ttl: int = 3600
+    max_sessions_per_ip: int = 10
 
 
 class RateLimitSettings(BaseSettings):
     """Rate limiting configuration."""
 
-    requests: int = Field(default=100, env="RATE_LIMIT_REQUESTS")
-    window: int = Field(default=60, env="RATE_LIMIT_WINDOW")
-    max_message_length: int = Field(default=5000, env="MAX_MESSAGE_LENGTH")
-    max_conversation_history: int = Field(default=50, env="MAX_CONVERSATION_HISTORY")
+    model_config = SettingsConfigDict(env_prefix="RATE_LIMIT_")
+
+    requests: int = 100
+    window: int = 60
+    max_message_length: int = 5000
+    max_conversation_history: int = 50
 
 
 class GameSettings(BaseSettings):
     """Game generation limits and configuration."""
 
-    max_size: int = Field(default=1048576, env="MAX_GAME_SIZE")  # 1MB
-    max_generation_time: int = Field(default=60, env="MAX_GENERATION_TIME")
-    max_concurrent_generations: int = Field(default=5, env="MAX_CONCURRENT_GENERATIONS")
+    model_config = SettingsConfigDict(env_prefix="")
+
+    max_game_size: int = 1048576  # 1MB
+    max_generation_time: int = 60
+    max_concurrent_generations: int = 5
+
+    @property
+    def max_size(self) -> int:
+        """Backward compatibility property."""
+        return self.max_game_size
 
 
 class WebSocketSettings(BaseSettings):
     """WebSocket configuration."""
 
-    heartbeat_interval: int = Field(default=30, env="WS_HEARTBEAT_INTERVAL")
-    max_connections: int = Field(default=1000, env="WS_MAX_CONNECTIONS")
+    model_config = SettingsConfigDict(env_prefix="WS_")
+
+    heartbeat_interval: int = 30
+    max_connections: int = 1000
 
 
 class CORSSettings(BaseSettings):
     """CORS configuration."""
 
-    origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8080"], env="CORS_ORIGINS"
-    )
-    credentials: bool = Field(default=True, env="CORS_CREDENTIALS")
-    methods: List[str] = Field(
-        default=["GET", "POST", "PUT", "DELETE", "OPTIONS"], env="CORS_METHODS"
-    )
-    headers: List[str] = Field(default=["*"], env="CORS_HEADERS")
+    model_config = SettingsConfigDict(env_prefix="CORS_")
+
+    origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    credentials: bool = True
+    methods: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    headers: List[str] = ["*"]
 
     @field_validator("origins", mode="before")
     @classmethod
@@ -166,26 +184,21 @@ class CORSSettings(BaseSettings):
 class MonitoringSettings(BaseSettings):
     """Monitoring and logging configuration."""
 
-    sentry_dsn: Optional[str] = Field(default=None, env="SENTRY_DSN")
-    prometheus_enabled: bool = Field(default=False, env="PROMETHEUS_ENABLED")
-    structured_logging: bool = Field(default=True, env="STRUCTURED_LOGGING")
+    model_config = SettingsConfigDict(env_prefix="")
 
-
-class TemplateSettings(BaseSettings):
-    """Template management configuration."""
-
-    cache_ttl: int = Field(default=3600, env="TEMPLATE_CACHE_TTL")
-    validation_enabled: bool = Field(default=True, env="TEMPLATE_VALIDATION_ENABLED")
+    sentry_dsn: Optional[str] = None
+    prometheus_enabled: bool = False
+    structured_logging: bool = True
 
 
 class CodeValidationSettings(BaseSettings):
     """Code validation and security settings."""
 
-    enabled: bool = Field(default=True, env="CODE_VALIDATION_ENABLED")
-    allowed_domains: Set[str] = Field(default={"localhost"}, env="ALLOWED_DOMAINS")
-    blocked_keywords: Set[str] = Field(
-        default={"eval", "exec", "import os", "import sys"}, env="BLOCKED_KEYWORDS"
-    )
+    model_config = SettingsConfigDict(env_prefix="CODE_VALIDATION_")
+
+    enabled: bool = True
+    allowed_domains: Set[str] = {"localhost"}
+    blocked_keywords: Set[str] = {"eval", "exec", "import os", "import sys"}
 
     @field_validator("allowed_domains", mode="before")
     @classmethod
@@ -205,9 +218,11 @@ class CodeValidationSettings(BaseSettings):
 class PerformanceSettings(BaseSettings):
     """Performance and resource limits."""
 
-    max_memory_usage: int = Field(default=512, env="MAX_MEMORY_USAGE")  # MB
-    request_timeout: int = Field(default=30, env="REQUEST_TIMEOUT")
-    db_pool_size: int = Field(default=10, env="DB_POOL_SIZE")
+    model_config = SettingsConfigDict(env_prefix="")
+
+    max_memory_usage: int = 512  # MB
+    request_timeout: int = 30
+    db_pool_size: int = 10
 
 
 class Settings:
@@ -224,7 +239,6 @@ class Settings:
         self.websocket = WebSocketSettings()
         self.cors = CORSSettings()
         self.monitoring = MonitoringSettings()
-        self.template = TemplateSettings()
         self.code_validation = CodeValidationSettings()
         self.performance = PerformanceSettings()
 

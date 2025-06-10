@@ -1,6 +1,6 @@
 """
-Enterprise-Standard Game Router
-Thin router that handles only HTTP concerns and delegates to controllers.
+Game Router for Core AI Game Generation Functionality
+Handles only essential game operations needed for core workflow.
 """
 
 import structlog
@@ -36,9 +36,9 @@ async def generate_game(
         # Delegate to controller
         result = await game_controller.create_game(request)
 
-        # Schedule background analytics logging
+        # Schedule background logging
         if result.data and result.data.get("session_id"):
-            background_tasks.add_task(_log_analytics, result.data["session_id"])
+            background_tasks.add_task(_log_game_generation, result.data["session_id"])
 
         return JSONResponse(status_code=status.HTTP_201_CREATED, content=result.dict())
 
@@ -83,68 +83,10 @@ async def get_game_info(session_id: str, game_id: str) -> JSONResponse:
         )
 
 
-@router.get("/validate/{session_id}/{game_id}")
-async def validate_game(session_id: str, game_id: str) -> JSONResponse:
-    """
-    Validate a game's code for security and quality.
-
-    Args:
-        session_id: Session identifier
-        game_id: Game identifier
-
-    Returns:
-        JSON response with validation results
-    """
-    try:
-        result = await game_controller.validate_game_code(session_id, game_id)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.get("/analytics/{session_id}")
-async def get_game_analytics(session_id: str) -> JSONResponse:
-    """
-    Get analytics for games in a session.
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        JSON response with analytics data
-    """
-    try:
-        result = await game_controller.get_session_analytics(session_id)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
 # Background task function
-async def _log_analytics(session_id: str) -> None:
-    """Log analytics in background task."""
+async def _log_game_generation(session_id: str) -> None:
+    """Log game generation for monitoring purposes."""
     try:
-        logger.info("Logging game generation analytics", session_id=session_id)
-        # Analytics logging implementation
+        logger.info("Game generation completed", session_id=session_id)
     except Exception as e:
-        logger.error("Analytics logging failed", session_id=session_id, error=str(e))
+        logger.error("Game generation logging failed", session_id=session_id, error=str(e))

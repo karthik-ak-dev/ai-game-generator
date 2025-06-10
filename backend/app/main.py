@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -19,9 +19,16 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import settings
-from .models.response_models import ErrorDetail, ErrorResponse, create_error_response
-from .routers import chat_router, game_router, health_router, session_router, template_router
-from .utils.constants import HTTP_STATUS, LOG_CATEGORIES
+from .models.response_models import (
+    ErrorDetail,
+    create_error_response,
+    create_validation_error_response,
+)
+from .routers.chat_router import router as chat_router
+from .routers.game_router import router as game_router
+from .routers.health_router import router as health_router
+from .routers.session_router import router as session_router
+from .utils.constants import HTTP_STATUS
 
 
 # Configure structured logging
@@ -86,7 +93,7 @@ async def lifespan(app: FastAPI):
         openai_valid = await _validate_openai_config()
         if not openai_valid:
             logger.warning("OpenAI configuration invalid - AI features will not work")
-            if settings.app.is_production:
+            if settings.is_production:
                 logger.error("OpenAI is required in production")
                 startup_success = False
 
@@ -99,7 +106,7 @@ async def lifespan(app: FastAPI):
             logger.info("Application startup completed successfully")
         else:
             logger.error("Application startup completed with critical errors")
-            if settings.app.is_production:
+            if settings.is_production:
                 raise RuntimeError("Critical services unavailable in production")
 
     except Exception as e:
@@ -242,7 +249,7 @@ def setup_middleware(app: FastAPI):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Content Security Policy
-        if settings.app.is_production:
+        if settings.is_production:
             csp_parts = []
             for directive, sources in {
                 "default-src": ["'self'"],
@@ -304,10 +311,8 @@ def setup_exception_handlers(app: FastAPI):
                 )
             )
 
-        response = ErrorResponse(
-            message="Validation failed",
-            error=ErrorDetail(code="VALIDATION_ERROR", message="Request validation failed"),
-            status_code=HTTP_STATUS["UNPROCESSABLE_ENTITY"],
+        response = create_validation_error_response(
+            message="Request validation failed",
             validation_errors=validation_errors,
         )
 
@@ -326,7 +331,7 @@ def setup_exception_handlers(app: FastAPI):
         )
 
         # Don't expose internal errors in production
-        if settings.app.is_production:
+        if settings.is_production:
             error_message = "Internal server error"
             error_details = None
         else:
@@ -388,7 +393,7 @@ def setup_routers(app: FastAPI):
 
     # Import and include routers
     try:
-        app.include_router(health_router, prefix="/api/health", tags=["Health"])
+        app.include_router(health_router, prefix="/api/v1/health", tags=["Health"])
 
         # Game generation and management
         app.include_router(game_router, prefix="/api/v1/games", tags=["Games"])
@@ -399,13 +404,10 @@ def setup_routers(app: FastAPI):
         # Session management
         app.include_router(session_router, prefix="/api/v1/sessions", tags=["Sessions"])
 
-        # Template management
-        app.include_router(template_router, prefix="/api/v1/templates", tags=["Templates"])
-
         logger = structlog.get_logger(__name__)
         logger.info(
             "All routers loaded successfully",
-            routers=["health", "games", "chat", "sessions", "templates"],
+            routers=["health", "games", "chat", "sessions"],
         )
 
     except ImportError as e:

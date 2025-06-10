@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<!--
+==========================================================================
+FLAPPY BIRD - AI-CONFIGURABLE TEMPLATE
+==========================================================================
+
+This template is designed for AI agents to easily understand and modify.
+ALL POSSIBLE MODIFICATIONS ARE DOCUMENTED BELOW WITH SAFE VALUE RANGES.
+
+MODIFICATION GUIDE FOR AI AGENTS:
+==========================================================================
+
+1. PHYSICS MODIFICATIONS (GAME_CONFIG.physics):
+   - gravity: 0.1-0.5 (lower=floaty, higher=heavy)
+   - lift: -2 to -8 (more negative=higher jumps)
+   - maxVelocity: 5-15 (maximum upward speed)
+   - airResistance: 0.99-0.999 (closer to 1=more gliding)
+   - terminalVelocity: 3-8 (maximum falling speed)
+
+2. DIFFICULTY MODIFICATIONS (GAME_CONFIG.world):
+   - scrollSpeed: 1-5 (game speed, higher=harder)
+   - pipeSpacing: 150-400 (distance between pipes, higher=easier)
+   - pipeGap: 100-250 (gap size, higher=easier)
+   - floorHeight: 50-150 (ground height)
+
+3. VISUAL MODIFICATIONS (GAME_CONFIG.canvas):
+   - width: 300-800 (game width in pixels)
+   - height: 400-800 (game height in pixels)
+
+4. BIRD MODIFICATIONS (GAME_CONFIG.bird):
+   - x: 50-150 (horizontal position)
+   - width: 20-50 (bird size width)
+   - height: 15-40 (bird size height)
+   - animationSpeed: 4-16 (wing flap speed)
+
+5. PIPE MODIFICATIONS (GAME_CONFIG.pipe):
+   - width: 30-80 (pipe thickness)
+   - minHeight: 30-100 (minimum pipe length)
+   - maxHeight: 200-400 (maximum pipe length)
+
+6. EFFECT MODIFICATIONS (GAME_CONFIG.effects):
+   - particleCount: 0-20 (particles per flap)
+   - particleColors.flap: any hex color (flap effect color)
+   - particleColors.explosion: any hex color (crash effect color)
+
+7. COLOR MODIFICATIONS (CSS):
+   - Background: body background, canvas background
+   - UI Colors: title, buttons, text colors
+   - Game border: #gameContainer border color
+
+8. SPRITE MODIFICATIONS (ASSET_URLS):
+   - background: any 400x600 background image URL
+   - floor: any repeating floor texture URL
+   - pipe: any pipe sprite URL
+   - birdUp/Mid/Down: bird animation frames URLs
+
+9. TEXT MODIFICATIONS (HTML):
+   - Game title in startScreen h1
+   - Instructions in startScreen p tags
+   - Button text in .btn elements
+
+10. SOUND MODIFICATIONS (Future):
+    - Add SOUND_URLS object similar to ASSET_URLS
+    - Add AudioManager class similar to AssetManager
+
+SAFE MODIFICATION EXAMPLES:
+==========================================================================
+- "Make bird jump higher": Change GAME_CONFIG.physics.lift to -6
+- "Make game easier": Increase GAME_CONFIG.world.pipeGap to 200
+- "Make bird blue": Change ASSET_URLS.birdUp/Mid/Down to blue bird URLs
+- "Make pipes red": Change ASSET_URLS.pipe to red pipe URL
+- "Slower game": Change GAME_CONFIG.world.scrollSpeed to 1.5
+- "Bigger bird": Change GAME_CONFIG.bird.width/height to 40/30
+- "Night theme": Change CSS colors to dark theme
+- "More particles": Change GAME_CONFIG.effects.particleCount to 10
+
+WARNING: DO NOT MODIFY:
+==========================================================================
+- Class structure and method names
+- Event listener setup
+- Game loop logic
+- Asset loading mechanism
+- Canvas context operations
+- Local storage keys
+
+==========================================================================
+AI AGENT QUICK REFERENCE TABLE:
+==========================================================================
+
+USER REQUEST                    → MODIFICATION
+---------------------------------------------------------------------
+"Make bird jump higher"         → GAME_CONFIG.physics.lift = -6.0
+"Make game easier"              → GAME_CONFIG.world.pipeGap = 200
+"Make game harder"              → GAME_CONFIG.world.pipeGap = 120  
+"Slower game"                   → GAME_CONFIG.world.scrollSpeed = 1.5
+"Faster game"                   → GAME_CONFIG.world.scrollSpeed = 3.0
+"Blue bird"                     → ASSET_URLS.birdUp/Mid/Down to bluebird
+"Yellow bird"                   → ASSET_URLS.birdUp/Mid/Down to yellowbird
+"Red pipes"                     → ASSET_URLS.pipe to red pipe URL
+"Night theme"                   → ASSET_URLS.background to night background
+"Dark theme"                    → CSS body background to #2c3e50
+"Bigger bird"                   → GAME_CONFIG.bird.width=45, height=32
+"More particles"                → GAME_CONFIG.effects.particleCount = 15
+"No particles"                  → GAME_CONFIG.effects.particleCount = 0
+"More floaty bird"              → GAME_CONFIG.physics.gravity = 0.15
+"Less floaty bird"              → GAME_CONFIG.physics.gravity = 0.3
+"Wider game"                    → GAME_CONFIG.canvas.width = 500
+"Taller game"                   → GAME_CONFIG.canvas.height = 700
+"Rainbow particles"             → GAME_CONFIG.effects.particleColors.*
+"Purple theme"                  → CSS body background to #8e44ad
+"Gold buttons"                  → CSS .btn background to #f39c12
+
+==========================================================================
+-->
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flappy Bird - AI-Configurable Template</title>
+  <style>
+    /* ==============================================
+       CSS STYLES - SAFE COLOR & LAYOUT MODIFICATION ZONE
+       All colors marked with MODIFY can be safely changed
+       ============================================== */
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      background: #70c5ce;
+      /* MODIFY: Background color */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    #gameContainer {
+      position: relative;
+      border: 2px solid #333;
+      /* MODIFY: Game border color */
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(to bottom, #70c5ce 0%, #87ceeb 100%);
+      /* MODIFY: Sky gradient */
+    }
+
+    #gameUI {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      /* MODIFY: Screen overlay transparency */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      /* MODIFY: Text color */
+      pointer-events: all;
+    }
+
+    .screen h1 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      color: #FFD700;
+      /* MODIFY: Title color */
+    }
+
+    .screen p {
+      font-size: 1.2em;
+      margin: 10px 0;
+      text-align: center;
+    }
+
+    .btn {
+      background: #4CAF50;
+      /* MODIFY: Button color */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background: #45a049;
+      /* MODIFY: Button hover color */
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #score {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      /* MODIFY: Score color */
+      font-size: 2em;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    #bestScore {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      /* MODIFY: Best score color */
+      font-size: 1em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    @media (max-width: 480px) {
+      #gameContainer {
+        border: none;
+        border-radius: 0;
+      }
+
+      canvas {
+        width: 100vw;
+        height: 100vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="gameUI">
+      <div id="score">0</div>
+      <div id="bestScore">Best: 0</div>
+
+      <div id="startScreen" class="screen">
+        <h1>🐦 Flappy Bird</h1>
+        <p>Tap SPACE or CLICK to flap</p>
+        <p>Avoid the pipes and fly as far as you can!</p>
+        <button class="btn" onclick="game.start()">START GAME</button>
+      </div>
+
+      <div id="gameOverScreen" class="screen hidden">
+        <h1>Game Over!</h1>
+        <p id="finalScore">Score: 0</p>
+        <p id="newBest" class="hidden">🎉 NEW BEST SCORE! 🎉</p>
+        <button class="btn" onclick="game.restart()">PLAY AGAIN</button>
+        <button class="btn" onclick="game.showStart()">MAIN MENU</button>
+      </div>
+
+      <div id="pauseScreen" class="screen hidden">
+        <h1>Paused</h1>
+        <p>Press SPACE to resume</p>
+        <button class="btn" onclick="game.resume()">RESUME</button>
+        <button class="btn" onclick="game.showStart()">MAIN MENU</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==============================================
+       GAME CONFIGURATION - SAFE MODIFICATION ZONE
+       ============================================== */
+
+    const GAME_CONFIG = {
+      // CANVAS SETTINGS - Safe range: 300-800 width, 400-800 height
+      canvas: {
+        width: 400,        // MODIFY: Game width in pixels (300-800)
+        height: 600        // MODIFY: Game height in pixels (400-800)
+      },
+
+      // PHYSICS SETTINGS - Controls bird movement and feel
+      physics: {
+        gravity: 0.2,           // MODIFY: How fast bird falls (0.1-0.5) - lower=floaty, higher=heavy
+        lift: -4.0,             // MODIFY: How much bird jumps up (-2 to -8) - more negative=higher jumps
+        maxVelocity: 8,         // MODIFY: Maximum upward speed (5-15) - prevents extreme movement
+        airResistance: 0.996,   // MODIFY: Air friction (0.99-0.999) - closer to 1=more gliding
+        terminalVelocity: 4.5   // MODIFY: Maximum falling speed (3-8) - prevents falling too fast
+      },
+
+      // WORLD SETTINGS - Controls game difficulty and speed
+      world: {
+        scrollSpeed: 2,         // MODIFY: Game speed (1-5) - higher=faster/harder
+        pipeSpacing: 200,       // MODIFY: Distance between pipe pairs (150-400) - higher=easier
+        pipeGap: 160,           // MODIFY: Gap between top/bottom pipes (100-250) - higher=easier
+        floorHeight: 112        // MODIFY: Ground height from bottom (50-150) - affects play area
+      },
+
+      // BIRD SETTINGS - Controls bird appearance and position
+      bird: {
+        x: 80,                  // MODIFY: Bird horizontal position (50-150) - where bird appears
+        width: 34,              // MODIFY: Bird sprite width (20-50) - bird size
+        height: 24,             // MODIFY: Bird sprite height (15-40) - bird size
+        animationSpeed: 8       // MODIFY: Wing flap speed (4-16) - higher=slower animation
+      },
+
+      // PIPE SETTINGS - Controls obstacle appearance
+      pipe: {
+        width: 52,              // MODIFY: Pipe thickness (30-80) - thicker=harder to pass
+        minHeight: 50,          // MODIFY: Minimum pipe length (30-100) - affects variety
+        maxHeight: 300          // MODIFY: Maximum pipe length (200-400) - affects difficulty
+      },
+
+      // VISUAL EFFECTS - Controls particles and animations
+      effects: {
+        particleCount: 5,       // MODIFY: Particles per flap (0-20) - 0=no particles, 20=lots
+        particleColors: {
+          flap: '#87ceeb',      // MODIFY: Flap effect color (any hex color: #ff0000, #00ff00, etc.)
+          explosion: '#ff6b6b'  // MODIFY: Crash effect color (any hex color: #ff0000, #00ff00, etc.)
+        }
+      }
+    };
+
+    /* ==============================================
+       CONFIG VALIDATION - Prevents breaking changes
+       ============================================== */
+
+    function validateConfig() {
+      const c = GAME_CONFIG;
+
+      // Ensure safe ranges to prevent game breaking
+      c.canvas.width = Math.max(300, Math.min(800, c.canvas.width));
+      c.canvas.height = Math.max(400, Math.min(800, c.canvas.height));
+      c.physics.gravity = Math.max(0.1, Math.min(0.5, c.physics.gravity));
+      c.physics.lift = Math.max(-8, Math.min(-2, c.physics.lift));
+      c.world.scrollSpeed = Math.max(1, Math.min(5, c.world.scrollSpeed));
+      c.world.pipeGap = Math.max(100, Math.min(250, c.world.pipeGap));
+      c.bird.width = Math.max(20, Math.min(50, c.bird.width));
+      c.bird.height = Math.max(15, Math.min(40, c.bird.height));
+      c.effects.particleCount = Math.max(0, Math.min(20, c.effects.particleCount));
+    }
+
+    // Auto-validate config on load
+    validateConfig();
+
+    /* ==============================================
+       ASSET CONFIGURATION - SAFE SPRITE MODIFICATION ZONE
+       ============================================== */
+
+    const ASSET_URLS = {
+      // MODIFY: Background sprite (recommended size: 400x600 or tileable)
+      background: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-day.png',
+
+      // MODIFY: Floor/ground sprite (recommended: tileable horizontally)
+      floor: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/base.png',
+
+      // MODIFY: Pipe sprite (recommended size: 52x400+ or tileable vertically)
+      pipe: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-green.png',
+
+      // MODIFY: Bird animation frames (recommended size: 34x24 each)
+      birdUp: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/redbird-upflap.png',
+      birdMid: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/redbird-midflap.png',
+      birdDown: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/redbird-downflap.png'
+    };
+
+    /* ==============================================
+       SPRITE MODIFICATION EXAMPLES FOR AI AGENTS
+       ============================================== */
+
+    /* EXAMPLE 1 - Blue Bird:
+    birdUp: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/bluebird-upflap.png',
+    birdMid: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/bluebird-midflap.png',
+    birdDown: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/bluebird-downflap.png'
+    */
+
+    /* EXAMPLE 2 - Yellow Bird:
+    birdUp: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-upflap.png',
+    birdMid: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-midflap.png',
+    birdDown: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-downflap.png'
+    */
+
+    /* EXAMPLE 3 - Night Background:
+    background: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-night.png'
+    */
+
+    /* EXAMPLE 4 - Red Pipes:
+    pipe: 'https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-red.png'
+    */
+
+    /* CUSTOM SPRITE GUIDELINES:
+    - background: Any 400x600 image or seamlessly tileable image
+    - floor: Any horizontally tileable texture (height ~112px)
+    - pipe: Any vertically tileable sprite (width ~52px)
+    - bird sprites: 3 frames of same-sized bird (width ~34px, height ~24px)
+    - All images should be PNG or JPG format
+    - Use HTTPS URLs for security
+    - Ensure images are publicly accessible
+    */
+
+    /* ==============================================
+       ASSET MANAGER CLASS - Handles sprite loading
+       ============================================== */
+
+    class AssetManager {
+      constructor() {
+        this.assets = {};
+        this.loaded = 0;
+        this.total = 0;
+        this.onComplete = null;
+      }
+
+      load(assetUrls, callback) {
+        this.total = Object.keys(assetUrls).length;
+        this.onComplete = callback;
+
+        Object.entries(assetUrls).forEach(([key, src]) => {
+          const img = new Image();
+          img.onload = () => this.onAssetLoad();
+          img.onerror = () => this.onAssetLoad(); // Continue even if asset fails
+          img.src = src;
+          this.assets[key] = img;
+        });
+      }
+
+      onAssetLoad() {
+        this.loaded++;
+        if (this.loaded === this.total && this.onComplete) {
+          this.onComplete();
+        }
+      }
+
+      get(key) {
+        return this.assets[key];
+      }
+    }
+
+    /* ==============================================
+       PARTICLE SYSTEM CLASS - Visual effects
+       ============================================== */
+
+    class Particle {
+      constructor(x, y, color = '#fff') {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 4;  // Random horizontal velocity
+        this.vy = Math.random() * -3 - 1;     // Random upward velocity
+        this.color = color;
+        this.life = 1.0;                      // Particle life (1.0 = fully visible)
+        this.decay = 0.02;                    // How fast particle fades
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.1;        // Gravity effect on particles
+        this.life -= this.decay;
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, 3, 3);
+        ctx.restore();
+      }
+
+      isDead() {
+        return this.life <= 0;
+      }
+    }
+
+    /* ==============================================
+       BIRD CLASS - Main player character
+       ============================================== */
+
+    class Bird {
+      constructor(game) {
+        this.game = game;
+        this.reset();
+      }
+
+      reset() {
+        this.x = GAME_CONFIG.bird.x;
+        this.y = this.game.height / 2;
+        this.width = GAME_CONFIG.bird.width;
+        this.height = GAME_CONFIG.bird.height;
+        this.velocity = 0;     // Current vertical speed
+        this.angle = 0;        // Bird rotation angle
+        this.animFrame = 0;    // Animation frame counter
+      }
+
+      flap() {
+        // Apply upward force when player presses space/clicks
+        this.velocity = GAME_CONFIG.physics.lift;
+
+        // Add visual particle effect
+        for (let i = 0; i < GAME_CONFIG.effects.particleCount; i++) {
+          this.game.particles.push(new Particle(
+            this.x + this.width / 2,
+            this.y + this.height / 2,
+            GAME_CONFIG.effects.particleColors.flap
+          ));
+        }
+      }
+
+      update() {
+        // Apply gravity - bird constantly falls
+        this.velocity += GAME_CONFIG.physics.gravity;
+
+        // Apply air resistance - makes movement smoother
+        this.velocity *= GAME_CONFIG.physics.airResistance;
+
+        // Limit velocity to prevent bird from moving too fast
+        this.velocity = Math.max(-GAME_CONFIG.physics.maxVelocity,
+          Math.min(GAME_CONFIG.physics.terminalVelocity, this.velocity));
+
+        // Update bird position
+        this.y += this.velocity;
+
+        // Calculate bird rotation based on velocity (visual effect)
+        this.angle = Math.min(Math.max(this.velocity * 0.06, -0.3), 0.8);
+
+        // Update animation frame for wing flapping
+        this.animFrame += 1 / GAME_CONFIG.bird.animationSpeed;
+      }
+
+      draw(ctx) {
+        // Choose bird sprite based on animation frame
+        const sprites = ['birdUp', 'birdMid', 'birdDown'];
+        const spriteIndex = Math.floor(this.animFrame) % sprites.length;
+        const sprite = this.game.assets.get(sprites[spriteIndex]);
+
+        // Draw bird with rotation
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.rotate(this.angle);
+        ctx.drawImage(sprite, -this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.restore();
+      }
+
+      // Get bird collision box (slightly smaller than sprite for better gameplay)
+      getBounds() {
+        return {
+          x: this.x + 2,
+          y: this.y + 2,
+          width: this.width - 4,
+          height: this.height - 4
+        };
+      }
+    }
+
+    /* ==============================================
+       PIPE CLASS - Obstacle pipes
+       ============================================== */
+
+    class Pipe {
+      constructor(game, x) {
+        this.game = game;
+        this.x = x;
+        this.width = GAME_CONFIG.pipe.width;
+
+        // Calculate random pipe heights with gap
+        const minTop = GAME_CONFIG.pipe.minHeight;
+        const maxTop = GAME_CONFIG.pipe.maxHeight;
+        this.topHeight = Math.random() * (maxTop - minTop) + minTop;
+        this.bottomY = this.topHeight + GAME_CONFIG.world.pipeGap;
+        this.bottomHeight = this.game.height - GAME_CONFIG.world.floorHeight - this.bottomY;
+
+        this.scored = false;   // Track if player scored on this pipe
+      }
+
+      update() {
+        // Move pipe left (creates scrolling effect)
+        this.x -= GAME_CONFIG.world.scrollSpeed;
+      }
+
+      draw(ctx) {
+        const pipeSprite = this.game.assets.get('pipe');
+
+        // Draw top pipe (flipped upside down)
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.topHeight / 2);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(pipeSprite, -this.width / 2, -this.topHeight / 2, this.width, this.topHeight);
+        ctx.restore();
+
+        // Draw bottom pipe (normal)
+        ctx.drawImage(pipeSprite, this.x, this.bottomY, this.width, this.bottomHeight);
+      }
+
+      isOffscreen() {
+        return this.x + this.width < 0;
+      }
+
+      // Check if bird collides with this pipe
+      collidesWith(bird) {
+        const birdBounds = bird.getBounds();
+
+        return (birdBounds.x < this.x + this.width &&
+          birdBounds.x + birdBounds.width > this.x &&
+          (birdBounds.y < this.topHeight ||
+            birdBounds.y + birdBounds.height > this.bottomY));
+      }
+
+      // Check if bird can score on this pipe
+      canScore(bird) {
+        return !this.scored && bird.x > this.x + this.width;
+      }
+    }
+
+    /* ==============================================
+       BACKGROUND CLASS - Scrolling environment
+       ============================================== */
+
+    class Background {
+      constructor(game) {
+        this.game = game;
+        this.x1 = 0;
+        this.x2 = this.game.width;
+        this.floorX1 = 0;
+        this.floorX2 = this.game.width;
+      }
+
+      update() {
+        // Move background slower than pipes for parallax effect
+        this.x1 -= GAME_CONFIG.world.scrollSpeed * 0.5;
+        this.x2 -= GAME_CONFIG.world.scrollSpeed * 0.5;
+
+        // Move floor at same speed as pipes
+        this.floorX1 -= GAME_CONFIG.world.scrollSpeed;
+        this.floorX2 -= GAME_CONFIG.world.scrollSpeed;
+
+        // Reset positions when sprites move off screen
+        if (this.x1 <= -this.game.width) this.x1 = this.game.width;
+        if (this.x2 <= -this.game.width) this.x2 = this.game.width;
+        if (this.floorX1 <= -this.game.width) this.floorX1 = this.game.width;
+        if (this.floorX2 <= -this.game.width) this.floorX2 = this.game.width;
+      }
+
+      draw(ctx) {
+        const bgSprite = this.game.assets.get('background');
+        const floorSprite = this.game.assets.get('floor');
+
+        // Draw scrolling background
+        ctx.drawImage(bgSprite, this.x1, 0, this.game.width, this.game.height);
+        ctx.drawImage(bgSprite, this.x2, 0, this.game.width, this.game.height);
+
+        // Draw scrolling floor
+        const floorY = this.game.height - GAME_CONFIG.world.floorHeight;
+        ctx.drawImage(floorSprite, this.floorX1, floorY, this.game.width, GAME_CONFIG.world.floorHeight);
+        ctx.drawImage(floorSprite, this.floorX2, floorY, this.game.width, GAME_CONFIG.world.floorHeight);
+      }
+    }
+
+    /* ==============================================
+       MAIN GAME CLASS - Core game logic
+       ============================================== */
+
+    class FlappyBirdGame {
+      constructor() {
+        // Initialize canvas and context
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = GAME_CONFIG.canvas.width;
+        this.height = GAME_CONFIG.canvas.height;
+
+        // Set canvas size
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        // Game state management
+        this.state = 'loading'; // loading, start, playing, paused, gameOver
+        this.score = 0;
+        this.bestScore = parseInt(localStorage.getItem('flappyBirdBest')) || 0;
+        this.frameCount = 0;
+
+        // Initialize game objects
+        this.bird = new Bird(this);
+        this.pipes = [];
+        this.particles = [];
+        this.background = new Background(this);
+
+        this.lastPipeX = this.width;
+
+        // Load assets and start
+        this.assets = new AssetManager();
+        this.setupEventListeners();
+        this.loadAssets();
+
+        this.updateUI();
+      }
+
+      loadAssets() {
+        this.assets.load(ASSET_URLS, () => {
+          this.state = 'start';
+          this.gameLoop();
+        });
+      }
+
+      setupEventListeners() {
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            this.handleInput();
+          }
+          if (e.code === 'KeyP') {
+            this.togglePause();
+          }
+        });
+
+        // Mouse/touch controls
+        this.canvas.addEventListener('click', () => this.handleInput());
+        this.canvas.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          this.handleInput();
+        });
+      }
+
+      handleInput() {
+        switch (this.state) {
+          case 'start':
+            this.start();
+            break;
+          case 'playing':
+            this.bird.flap();
+            break;
+          case 'paused':
+            this.resume();
+            break;
+          case 'gameOver':
+            this.restart();
+            break;
+        }
+      }
+
+      start() {
+        this.state = 'playing';
+        this.score = 0;
+        this.frameCount = 0;
+        this.bird.reset();
+        this.pipes = [];
+        this.particles = [];
+        this.lastPipeX = this.width;
+        this.updateUI();
+        this.hideAllScreens();
+      }
+
+      pause() {
+        if (this.state === 'playing') {
+          this.state = 'paused';
+          document.getElementById('pauseScreen').classList.remove('hidden');
+        }
+      }
+
+      resume() {
+        if (this.state === 'paused') {
+          this.state = 'playing';
+          this.hideAllScreens();
+        }
+      }
+
+      togglePause() {
+        if (this.state === 'playing') {
+          this.pause();
+        } else if (this.state === 'paused') {
+          this.resume();
+        }
+      }
+
+      gameOver() {
+        this.state = 'gameOver';
+
+        // Add explosion particle effect
+        for (let i = 0; i < 20; i++) {
+          this.particles.push(new Particle(
+            this.bird.x + this.bird.width / 2,
+            this.bird.y + this.bird.height / 2,
+            GAME_CONFIG.effects.particleColors.explosion
+          ));
+        }
+
+        // Update best score if needed
+        const isNewBest = this.score > this.bestScore;
+        if (isNewBest) {
+          this.bestScore = this.score;
+          localStorage.setItem('flappyBirdBest', this.bestScore);
+          document.getElementById('newBest').classList.remove('hidden');
+        } else {
+          document.getElementById('newBest').classList.add('hidden');
+        }
+
+        document.getElementById('finalScore').textContent = `Score: ${this.score}`;
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+        this.updateUI();
+      }
+
+      restart() {
+        this.hideAllScreens();
+        this.start();
+      }
+
+      showStart() {
+        this.state = 'start';
+        this.hideAllScreens();
+        document.getElementById('startScreen').classList.remove('hidden');
+      }
+
+      hideAllScreens() {
+        document.querySelectorAll('.screen').forEach(screen => {
+          screen.classList.add('hidden');
+        });
+      }
+
+      updateUI() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('bestScore').textContent = `Best: ${this.bestScore}`;
+      }
+
+      update() {
+        if (this.state !== 'playing') return;
+
+        this.frameCount++;
+        this.background.update();
+        this.bird.update();
+
+        // Generate new pipes at regular intervals
+        if (this.lastPipeX <= this.width - GAME_CONFIG.world.pipeSpacing) {
+          this.pipes.push(new Pipe(this, this.width));
+          this.lastPipeX = this.width;
+        }
+        this.lastPipeX -= GAME_CONFIG.world.scrollSpeed;
+
+        // Update all pipes
+        for (let i = this.pipes.length - 1; i >= 0; i--) {
+          const pipe = this.pipes[i];
+          pipe.update();
+
+          // Check for collision
+          if (pipe.collidesWith(this.bird)) {
+            this.gameOver();
+            return;
+          }
+
+          // Check for scoring
+          if (pipe.canScore(this.bird)) {
+            this.score++;
+            pipe.scored = true;
+            this.updateUI();
+          }
+
+          // Remove pipes that are off screen
+          if (pipe.isOffscreen()) {
+            this.pipes.splice(i, 1);
+          }
+        }
+
+        // Check ground/ceiling collision
+        if (this.bird.y + this.bird.height >= this.height - GAME_CONFIG.world.floorHeight ||
+          this.bird.y <= 0) {
+          this.gameOver();
+          return;
+        }
+
+        // Update particle effects
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const particle = this.particles[i];
+          particle.update();
+          if (particle.isDead()) {
+            this.particles.splice(i, 1);
+          }
+        }
+      }
+
+      draw() {
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // Draw all game elements
+        this.background.draw(this.ctx);
+        this.pipes.forEach(pipe => pipe.draw(this.ctx));
+        this.bird.draw(this.ctx);
+        this.particles.forEach(particle => particle.draw(this.ctx));
+      }
+
+      gameLoop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(() => this.gameLoop());
+      }
+    }
+
+    /* ==============================================
+       GAME INITIALIZATION
+       ============================================== */
+
+    // Start the game
+    const game = new FlappyBirdGame();
+
+    /* ==========================================================================
+       COMPLETE AI AGENT MODIFICATION REFERENCE GUIDE
+       ==========================================================================
+       
+       This section provides AI agents with comprehensive modification examples
+       and ensures all changes are safe and won't break the game.
+       
+       ==========================================================================
+       QUICK MODIFICATION REFERENCE:
+       ==========================================================================
+       
+       PHYSICS MODIFICATIONS:
+       ----------------------
+       Make bird more floaty:     GAME_CONFIG.physics.gravity = 0.15
+       Make bird less floaty:     GAME_CONFIG.physics.gravity = 0.3
+       Higher jumps:              GAME_CONFIG.physics.lift = -6.0
+       Lower jumps:               GAME_CONFIG.physics.lift = -3.0
+       More gliding:              GAME_CONFIG.physics.airResistance = 0.998
+       Less gliding:              GAME_CONFIG.physics.airResistance = 0.99
+       
+       DIFFICULTY MODIFICATIONS:
+       -------------------------
+       Make easier:               GAME_CONFIG.world.pipeGap = 200
+       Make harder:               GAME_CONFIG.world.pipeGap = 120
+       Slower game:               GAME_CONFIG.world.scrollSpeed = 1.5
+       Faster game:               GAME_CONFIG.world.scrollSpeed = 3
+       More space between pipes:  GAME_CONFIG.world.pipeSpacing = 300
+       Less space between pipes:  GAME_CONFIG.world.pipeSpacing = 150
+       
+       VISUAL MODIFICATIONS:
+       ---------------------
+       Bigger bird:               GAME_CONFIG.bird.width = 45, height = 32
+       Smaller bird:              GAME_CONFIG.bird.width = 25, height = 18
+       More particles:            GAME_CONFIG.effects.particleCount = 15
+       No particles:              GAME_CONFIG.effects.particleCount = 0
+       Different particle colors: GAME_CONFIG.effects.particleColors.flap = '#ff0000'
+       
+       SPRITE MODIFICATIONS:
+       --------------------
+       Blue bird:                 Change birdUp/Mid/Down to bluebird URLs
+       Yellow bird:               Change birdUp/Mid/Down to yellowbird URLs
+       Night theme:               Change background to background-night.png
+       Different pipes:           Change pipe URL to different colored pipe
+       
+       COLOR MODIFICATIONS (CSS):
+       --------------------------
+       Dark theme:                Change body background to #2c3e50
+       Green theme:               Change body background to #27ae60
+       Purple theme:              Change body background to #8e44ad
+       Gold buttons:              Change .btn background to #f39c12
+       Red title:                 Change .screen h1 color to #e74c3c
+       
+       TEXT MODIFICATIONS (HTML):
+       --------------------------
+       Change game title:         Modify "🐦 Flappy Bird" in startScreen h1
+       Change instructions:       Modify p tags in startScreen
+       Change button text:        Modify .btn innerHTML
+       
+       CANVAS SIZE MODIFICATIONS:
+       --------------------------
+       Wider game:                GAME_CONFIG.canvas.width = 500
+       Taller game:               GAME_CONFIG.canvas.height = 700
+       Mobile optimized:          width = 350, height = 500
+       Tablet optimized:          width = 600, height = 800
+       
+       ==========================================================================
+       COMMON USER REQUESTS AND SOLUTIONS:
+       ==========================================================================
+       
+       "Make the bird jump higher"
+       → GAME_CONFIG.physics.lift = -6.0
+       
+       "Make the game easier"
+       → GAME_CONFIG.world.pipeGap = 200
+       → GAME_CONFIG.world.pipeSpacing = 250
+       
+       "Make the bird blue"
+       → Change ASSET_URLS.birdUp/Mid/Down to bluebird URLs
+       
+       "Make the pipes red"
+       → Change ASSET_URLS.pipe to red pipe URL
+       
+       "Slower game"
+       → GAME_CONFIG.world.scrollSpeed = 1.5
+       
+       "More challenging"
+       → GAME_CONFIG.world.pipeGap = 120
+       → GAME_CONFIG.physics.gravity = 0.3
+       
+       "Bigger bird"
+       → GAME_CONFIG.bird.width = 45
+       → GAME_CONFIG.bird.height = 32
+       
+       "Dark theme"
+       → Change CSS body background to #2c3e50
+       → Change canvas background to dark gradient
+       
+       "No effects"
+       → GAME_CONFIG.effects.particleCount = 0
+       
+       "More particles"
+       → GAME_CONFIG.effects.particleCount = 15
+       
+       "Rainbow particles"
+       → GAME_CONFIG.effects.particleColors.flap = '#ff00ff'
+       → GAME_CONFIG.effects.particleColors.explosion = '#00ffff'
+       
+       ==========================================================================
+       SAFETY VALIDATION:
+       ==========================================================================
+       
+       The validateConfig() function automatically prevents unsafe values:
+       - Canvas dimensions are limited to 300-800 range
+       - Physics values are limited to safe ranges
+       - Particle counts are limited to prevent performance issues
+       - All critical game mechanics are protected
+       
+       SAFE TO MODIFY:
+       ✅ GAME_CONFIG values (within documented ranges)
+       ✅ ASSET_URLS (any valid image URLs)
+       ✅ CSS colors and fonts
+       ✅ HTML text content
+       ✅ Button text and labels
+       
+       DO NOT MODIFY:
+       ❌ Class structures and method names
+       ❌ Event listener implementations
+       ❌ Game loop logic
+       ❌ Canvas context operations
+       ❌ Local storage mechanisms
+       ❌ Asset loading logic
+       
+       ==========================================================================
+       MODIFICATION TEMPLATE FOR AI AGENTS:
+       ==========================================================================
+       
+       When modifying this template:
+       1. Identify the user's request category (physics, visual, difficulty, etc.)
+       2. Find the appropriate GAME_CONFIG or ASSET_URLS section
+       3. Make changes within the documented safe ranges
+       4. If changing sprites, ensure URLs are valid and accessible
+       5. If changing colors, use valid hex codes or CSS color names
+       6. Test that the modification makes logical sense
+       
+       Example modification process:
+       User: "Make the bird yellow and jump higher"
+       1. Identify: Sprite change + physics change
+       2. Modify: ASSET_URLS.birdUp/Mid/Down to yellowbird URLs
+       3. Modify: GAME_CONFIG.physics.lift = -5.5
+       4. Result: Yellow bird with higher jumps
+       
+       ========================================================================== */
+  </script>
+</body>
+
+</html>

@@ -8,7 +8,7 @@ import json
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
 import structlog
@@ -81,15 +81,6 @@ class RedisService:
         self._operation_semaphore = asyncio.Semaphore(100)  # Limit concurrent operations
         self._circuit_breaker = CircuitBreaker()
 
-        # Performance metrics
-        self._metrics = {
-            "total_operations": 0,
-            "successful_operations": 0,
-            "failed_operations": 0,
-            "average_latency": 0.0,
-            "last_reset": datetime.utcnow(),
-        }
-
     async def connect(self) -> bool:
         """
         Establish Redis connection with retry logic and optimized settings.
@@ -103,14 +94,14 @@ class RedisService:
                 settings.redis.connection_url,
                 encoding="utf-8",
                 decode_responses=True,
-                max_connections=50,  # Increased from 20
+                max_connections=50,
                 retry_on_timeout=True,
                 retry_on_error=[redis.ConnectionError, redis.TimeoutError],
-                socket_connect_timeout=3,  # Reduced timeout
-                socket_timeout=3,  # Reduced timeout
+                socket_connect_timeout=3,
+                socket_timeout=3,
                 socket_keepalive=True,
                 socket_keepalive_options={},
-                health_check_interval=30,  # Check connection health every 30s
+                health_check_interval=30,
             )
 
             self.client = redis.Redis(
@@ -125,10 +116,9 @@ class RedisService:
             self._is_connected = True
 
             logger.info(
-                "Redis connection established with optimized settings",
+                "Redis connection established",
                 host=settings.redis.host,
                 port=settings.redis.port,
-                max_connections=50,
             )
             return True
 
@@ -141,7 +131,6 @@ class RedisService:
         """Close Redis connection gracefully with cleanup."""
         try:
             if self.client:
-                # Wait for any pending operations to complete (with timeout)
                 await asyncio.sleep(0.1)
                 await self.client.close()
             if self.connection_pool:
@@ -153,18 +142,16 @@ class RedisService:
 
     async def health_check(self) -> Dict[str, Any]:
         """
-        Comprehensive Redis health check with performance metrics.
+        Redis health check.
 
         Returns:
-            Detailed health status dictionary
+            Health status dictionary
         """
         if not self._is_connected or not self.client:
             return {
                 "status": "unhealthy",
                 "message": "Redis not connected",
-                "latency": None,
                 "circuit_breaker_state": self._circuit_breaker.state,
-                "metrics": self._get_metrics_summary(),
             }
 
         try:
@@ -172,54 +159,36 @@ class RedisService:
             await asyncio.wait_for(self.client.ping(), timeout=2.0)
             latency = round((time.time() - start_time) * 1000, 2)  # ms
 
-            # Get Redis info
-            info = await self.client.info("memory")
-
             return {
                 "status": "healthy",
                 "message": "Redis connection active",
                 "latency": latency,
                 "circuit_breaker_state": self._circuit_breaker.state,
-                "memory_usage": info.get("used_memory_human", "unknown"),
-                "connected_clients": info.get("connected_clients", 0),
-                "metrics": self._get_metrics_summary(),
             }
         except asyncio.TimeoutError:
             return {
                 "status": "unhealthy",
                 "message": "Redis ping timeout",
-                "latency": None,
                 "circuit_breaker_state": self._circuit_breaker.state,
-                "metrics": self._get_metrics_summary(),
             }
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "message": f"Redis error: {str(e)}",
-                "latency": None,
                 "circuit_breaker_state": self._circuit_breaker.state,
-                "metrics": self._get_metrics_summary(),
             }
 
     @asynccontextmanager
     async def _operation_context(self, operation_name: str):
-        """Context manager for tracking operations and performance."""
-        start_time = time.time()
+        """Context manager for tracking operations."""
         async with self._operation_semaphore:
             try:
                 yield
-                # Record successful operation
-                self._metrics["successful_operations"] += 1
-                latency = time.time() - start_time
-                self._update_average_latency(latency)
             except Exception as e:
-                self._metrics["failed_operations"] += 1
                 logger.error(f"Redis operation failed: {operation_name}", error=str(e))
                 raise
-            finally:
-                self._metrics["total_operations"] += 1
 
-    # Session Management Methods (Optimized)
+    # Session Management Methods
 
     async def store_session(
         self, session_id: str, session_data: Dict[str, Any], ttl: Optional[int] = None
@@ -232,8 +201,6 @@ class RedisService:
         async with self._operation_context("store_session"):
             try:
                 key = f"{REDIS_KEYS['SESSION']}{session_id}"
-
-                # Optimized JSON serialization
                 data = json.dumps(session_data, separators=(",", ":"), default=str)
                 ttl = ttl or settings.redis.session_ttl
 
@@ -259,7 +226,6 @@ class RedisService:
                 return None
             except json.JSONDecodeError as e:
                 logger.error("Session data corrupted", session_id=session_id, error=str(e))
-                # Clean up corrupted data
                 await self.delete_session(session_id)
                 return None
             except Exception as e:
@@ -280,7 +246,6 @@ class RedisService:
                 # Also clean up related data
                 cleanup_tasks = [
                     self.client.delete(f"{REDIS_KEYS['CONVERSATION_CONTEXT']}{session_id}"),
-                    self.client.delete(f"session_activities:{session_id}"),
                 ]
                 await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
@@ -289,24 +254,7 @@ class RedisService:
                 logger.error("Failed to delete session", session_id=session_id, error=str(e))
                 return False
 
-    async def extend_session(self, session_id: str, additional_seconds: int) -> bool:
-        """Extend session TTL efficiently."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            return False
-
-        async with self._operation_context("extend_session"):
-            try:
-                key = f"{REDIS_KEYS['SESSION']}{session_id}"
-                result = await self._circuit_breaker.call(
-                    self.client.expire, key, additional_seconds
-                )
-                return bool(result)
-            except Exception as e:
-                logger.error("Failed to extend session", session_id=session_id, error=str(e))
-                return False
-
-    # Conversation Context Methods (Optimized)
+    # Conversation Context Methods
 
     async def store_conversation_context(
         self, session_id: str, context_data: Dict[str, Any]
@@ -375,7 +323,7 @@ class RedisService:
                 )
                 return None
 
-    # General Cache Methods (Optimized)
+    # General Cache Methods
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Set key-value with intelligent serialization."""
@@ -424,34 +372,6 @@ class RedisService:
                 logger.error("Failed to get cache key", key=key, error=str(e))
                 return None
 
-    async def mget(self, keys: List[str]) -> List[Optional[Any]]:
-        """Get multiple values efficiently."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            return [None] * len(keys)
-
-        async with self._operation_context("mget"):
-            try:
-                if not keys:
-                    return []
-
-                results = await self._circuit_breaker.call(self.client.mget, keys)
-                parsed_results = []
-
-                for result in results:
-                    if result is None:
-                        parsed_results.append(None)
-                    else:
-                        try:
-                            parsed_results.append(json.loads(result))
-                        except json.JSONDecodeError:
-                            parsed_results.append(result)
-
-                return parsed_results
-            except Exception as e:
-                logger.error("Failed to get multiple keys", keys=keys, error=str(e))
-                return [None] * len(keys)
-
     async def delete(self, key: str) -> bool:
         """Delete key efficiently."""
         if not self.client:
@@ -480,199 +400,12 @@ class RedisService:
                 logger.error("Failed to check key existence", key=key, error=str(e))
                 return False
 
-    async def increment(self, key: str, amount: int = 1) -> Optional[int]:
-        """Increment numeric value atomically."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            return None
-
-        async with self._operation_context("increment"):
-            try:
-                result = await self._circuit_breaker.call(self.client.incrby, key, amount)
-                return result
-            except Exception as e:
-                logger.error("Failed to increment key", key=key, error=str(e))
-                return None
-
-    # Batch Operations for Performance
-
-    async def pipeline(self):
-        """Get Redis pipeline for batch operations."""
-        if not self.client:
-            raise RedisError("Redis client not connected")
-
-        try:
-            return self.client.pipeline()
-        except Exception as e:
-            logger.error("Failed to create pipeline", error=str(e))
-            raise RedisError(f"Pipeline creation failed: {str(e)}")
-
-    async def execute_pipeline(self, pipeline) -> List[Any]:
-        """Execute pipeline with error handling."""
-        async with self._operation_context("execute_pipeline"):
-            try:
-                results = await self._circuit_breaker.call(pipeline.execute)
-                return results
-            except Exception as e:
-                logger.error("Failed to execute pipeline", error=str(e))
-                raise RedisError(f"Pipeline execution failed: {str(e)}")
-
-    # Rate Limiting Support (Optimized)
-
-    async def rate_limit_check(self, key: str, limit: int, window: int) -> Dict[str, Any]:
-        """Optimized sliding window rate limiting."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            # Fail open for rate limiting
-            return {
-                "allowed": True,
-                "count": 0,
-                "limit": limit,
-                "reset_time": 0,
-                "remaining": limit,
-            }
-
-        async with self._operation_context("rate_limit_check"):
-            try:
-                now = int(time.time())
-
-                # Use pipeline for atomic operations
-                pipe = self.client.pipeline()
-
-                # Remove old entries
-                pipe.zremrangebyscore(key, 0, now - window)
-                # Add current request
-                pipe.zadd(key, {str(now): now})
-                # Count requests in window
-                pipe.zcard(key)
-                # Set expiry
-                pipe.expire(key, window)
-
-                results = await self._circuit_breaker.call(pipe.execute)
-                current_count = results[2]
-
-                return {
-                    "allowed": current_count <= limit,
-                    "count": current_count,
-                    "limit": limit,
-                    "reset_time": now + window,
-                    "remaining": max(0, limit - current_count),
-                }
-            except Exception as e:
-                logger.error("Failed to check rate limit", key=key, error=str(e))
-                # Fail open for rate limiting
-                return {
-                    "allowed": True,
-                    "count": 0,
-                    "limit": limit,
-                    "reset_time": 0,
-                    "remaining": limit,
-                }
-
-    # Utility Methods
-
-    async def flush_pattern(self, pattern: str, batch_size: int = 1000) -> int:
-        """Delete keys matching pattern in batches to avoid blocking."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            return 0
-
-        async with self._operation_context("flush_pattern"):
-            try:
-                total_deleted = 0
-                cursor = 0
-
-                while True:
-                    cursor, keys = await self._circuit_breaker.call(
-                        self.client.scan, cursor, match=pattern, count=batch_size
-                    )
-
-                    if keys:
-                        deleted = await self._circuit_breaker.call(self.client.delete, *keys)
-                        total_deleted += deleted
-
-                    if cursor == 0:
-                        break
-
-                    # Yield control to prevent blocking
-                    await asyncio.sleep(0.001)
-
-                return total_deleted
-            except Exception as e:
-                logger.error("Failed to flush pattern", pattern=pattern, error=str(e))
-                return 0
-
-    async def get_info(self) -> Dict[str, Any]:
-        """Get comprehensive Redis server info."""
-        if not self.client:
-            logger.error("Redis client not connected")
-            return {}
-
-        async with self._operation_context("get_info"):
-            try:
-                info = await self._circuit_breaker.call(self.client.info)
-                return {
-                    "redis_version": info.get("redis_version"),
-                    "used_memory_human": info.get("used_memory_human"),
-                    "connected_clients": info.get("connected_clients"),
-                    "total_commands_processed": info.get("total_commands_processed"),
-                    "uptime_in_seconds": info.get("uptime_in_seconds"),
-                    "keyspace_hits": info.get("keyspace_hits", 0),
-                    "keyspace_misses": info.get("keyspace_misses", 0),
-                    "hit_rate": self._calculate_hit_rate(info),
-                }
-            except Exception as e:
-                logger.error("Failed to get Redis info", error=str(e))
-                return {}
-
-    def _calculate_hit_rate(self, info: Dict[str, Any]) -> float:
-        """Calculate cache hit rate."""
-        hits = info.get("keyspace_hits", 0)
-        misses = info.get("keyspace_misses", 0)
-        total = hits + misses
-        return (hits / total * 100) if total > 0 else 0.0
-
-    def _get_metrics_summary(self) -> Dict[str, Any]:
-        """Get performance metrics summary."""
-        total_ops = self._metrics["total_operations"]
-        success_rate = (
-            (self._metrics["successful_operations"] / total_ops * 100) if total_ops > 0 else 0
-        )
-
-        return {
-            "total_operations": total_ops,
-            "success_rate": round(success_rate, 2),
-            "average_latency_ms": round(self._metrics["average_latency"] * 1000, 2),
-            "last_reset": self._metrics["last_reset"].isoformat(),
-        }
-
-    def _update_average_latency(self, latency: float):
-        """Update running average latency."""
-        current_avg = self._metrics["average_latency"]
-        total_ops = self._metrics["total_operations"]
-
-        # Running average calculation
-        if total_ops > 0:
-            self._metrics["average_latency"] = (current_avg * (total_ops - 1) + latency) / total_ops
-        else:
-            self._metrics["average_latency"] = latency
-
     @property
     def is_connected(self) -> bool:
         """Check if Redis is connected and circuit breaker is closed."""
         return (
             self._is_connected and self.client is not None and self._circuit_breaker.state != "OPEN"
         )
-
-    async def reset_metrics(self):
-        """Reset performance metrics."""
-        self._metrics = {
-            "total_operations": 0,
-            "successful_operations": 0,
-            "failed_operations": 0,
-            "average_latency": 0.0,
-            "last_reset": datetime.utcnow(),
-        }
 
 
 # Global Redis service instance

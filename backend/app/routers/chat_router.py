@@ -1,7 +1,6 @@
 """
-Enterprise-Standard Chat Router
-Thin router that handles only HTTP concerns and delegates to controllers.
-Includes WebSocket management for real-time chat.
+Core Chat Router for AI Game Generator
+Handles essential chat operations and real-time WebSocket communication.
 """
 
 import json
@@ -86,13 +85,15 @@ async def send_chat_message(
             _notify_websocket, request.session_id, {"type": "chat_response", "data": result.data}
         )
 
-        # Background analytics with proper null checks
+        # Background analytics with proper null handling
         if result.data:
+            intent = result.data.get("intent", "unknown")
+            processing_time = result.data.get("processing_time", 0.0)
             background_tasks.add_task(
                 _log_chat_analytics,
                 request.session_id,
-                result.data.get("intent"),
-                result.data.get("processing_time"),
+                str(intent) if intent is not None else "unknown",
+                float(processing_time) if processing_time is not None else 0.0,
             )
 
         return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
@@ -164,62 +165,6 @@ async def reset_conversation(session_id: str) -> JSONResponse:
             session_id,
             {"type": "conversation_reset", "data": {"message": "Conversation has been reset"}},
         )
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except (ValidationError, NotFoundError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.get("/summary/{session_id}")
-async def get_conversation_summary(session_id: str) -> JSONResponse:
-    """
-    Get conversation summary and analytics.
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        JSON response with conversation summary
-    """
-    try:
-        result = await chat_controller.get_conversation_summary(session_id)
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
-
-    except (ValidationError, NotFoundError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-    except BusinessLogicError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": e.message, "error_code": e.error_code},
-        )
-
-
-@router.get("/suggestions/{session_id}")
-async def get_conversation_suggestions(session_id: str) -> JSONResponse:
-    """
-    Get suggested responses or actions for the conversation.
-
-    Args:
-        session_id: Session identifier
-
-    Returns:
-        JSON response with conversation suggestions
-    """
-    try:
-        result = await chat_controller.get_conversation_suggestions(session_id)
 
         return JSONResponse(status_code=status.HTTP_200_OK, content=result.dict())
 
@@ -331,6 +276,5 @@ async def _log_chat_analytics(session_id: str, intent: str, processing_time: flo
             intent=intent,
             processing_time=processing_time,
         )
-        # Chat analytics implementation
     except Exception as e:
         logger.error("Chat analytics logging failed", session_id=session_id, error=str(e))

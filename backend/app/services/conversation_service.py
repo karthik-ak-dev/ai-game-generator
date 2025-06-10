@@ -12,7 +12,7 @@ import structlog
 from ..config import settings
 from ..models.chat_models import ChatMessage, ConversationContext
 from ..models.game_models import GameState
-from ..utils.constants import REDIS_KEYS, MessageType, ModificationType
+from ..utils.constants import REDIS_KEYS, MessageType
 from .redis_service import redis_service
 
 logger = structlog.get_logger(__name__)
@@ -170,95 +170,6 @@ class ConversationService:
                 session_id=session_id, conversation_history=[], conversation_stage="initial"
             )
 
-    def generate_contextual_prompt(self, context: ConversationContext, current_request: str) -> str:
-        """
-        Generate context-aware prompt for AI.
-
-        Args:
-            context: Conversation context
-            current_request: Current user request
-
-        Returns:
-            Enhanced prompt with context
-        """
-        # Build conversation history for context
-        history_parts = []
-        recent_messages = context.conversation_history[-10:]  # Last 10 messages
-
-        for msg in recent_messages:
-            role = "User" if msg.role == "user" else "Assistant"
-            history_parts.append(f"{role}: {msg.content}")
-
-        conversation_history = "\n".join(history_parts)
-
-        # Build context information
-        context_info = []
-
-        if context.current_game_state:
-            game_state = context.current_game_state
-            context_info.extend(
-                [
-                    f"Current Game Type: {game_state.get('game_type', 'unknown')}",
-                    f"Game Engine: {game_state.get('engine', 'unknown')}",
-                    f"Game Version: {game_state.get('version', 1)}",
-                    f"Active Features: {', '.join(game_state.get('features', []))}",
-                ]
-            )
-
-        if context.user_intent:
-            context_info.append(f"User Intent: {context.user_intent}")
-
-        if context.modification_type:
-            context_info.append(f"Modification Type: {context.modification_type}")
-
-        # Combine everything
-        prompt_parts = [
-            "CONVERSATION CONTEXT:",
-            conversation_history,
-            "",
-            "CURRENT GAME CONTEXT:",
-            "\n".join(context_info) if context_info else "No active game",
-            "",
-            "CURRENT REQUEST:",
-            current_request,
-        ]
-
-        return "\n".join(prompt_parts)
-
-    async def get_conversation_summary(self, session_id: str) -> Dict[str, Any]:
-        """Get summary of conversation for session."""
-        try:
-            context = await self.get_conversation_context(session_id)
-
-            user_messages = [msg for msg in context.conversation_history if msg.role == "user"]
-            ai_messages = [msg for msg in context.conversation_history if msg.role == "assistant"]
-
-            # Analyze conversation patterns
-            modification_requests = len(
-                [
-                    msg
-                    for msg in user_messages
-                    if any(
-                        word in msg.content.lower() for word in ["change", "modify", "add", "fix"]
-                    )
-                ]
-            )
-
-            return {
-                "total_messages": len(context.conversation_history),
-                "user_messages": len(user_messages),
-                "ai_messages": len(ai_messages),
-                "modification_requests": modification_requests,
-                "current_stage": context.conversation_stage,
-                "last_activity": context.last_activity,
-                "has_active_game": context.current_game_state is not None,
-                "active_features": context.active_features,
-            }
-
-        except Exception as e:
-            logger.error("Failed to get conversation summary", session_id=session_id, error=str(e))
-            return {}
-
     async def reset_conversation(self, session_id: str) -> None:
         """Reset conversation context for session."""
         try:
@@ -271,7 +182,7 @@ class ConversationService:
             logger.error("Failed to reset conversation", session_id=session_id, error=str(e))
             raise
 
-    # Private Methods (organized at the end for better readability)
+    # Private Methods
 
     async def _delete_conversation_context(self, session_id: str) -> None:
         """Delete conversation context from Redis."""
@@ -314,10 +225,10 @@ class ConversationService:
 
         # Map to modification types
         modification_type_map = {
-            "modify_visual": ModificationType.VISUAL_CHANGE,
-            "modify_gameplay": ModificationType.GAMEPLAY_CHANGE,
-            "add_feature": ModificationType.FEATURE_ADDITION,
-            "fix_bug": ModificationType.BUG_FIX,
+            "modify_visual": "visual_change",
+            "modify_gameplay": "gameplay_change",
+            "add_feature": "feature_addition",
+            "fix_bug": "bug_fix",
         }
 
         result = {"intent": primary_intent, "confidence": confidence, "all_scores": intent_scores}

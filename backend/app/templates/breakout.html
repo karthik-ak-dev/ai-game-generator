@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<!--
+==========================================================================
+BREAKOUT GAME - AI-CONFIGURABLE TEMPLATE
+==========================================================================
+
+MODIFICATION GUIDE FOR AI AGENTS:
+==========================================================================
+
+1. PHYSICS (GAME_CONFIG.physics):
+   - ballSpeed: 2-8 (ball movement speed)
+   - paddleSpeed: 5-15 (paddle movement speed)
+   - ballAcceleration: 1.0-1.05 (speed increase per brick hit)
+   - maxBallSpeed: 6-12 (maximum ball speed limit)
+
+2. PADDLE (GAME_CONFIG.paddle):
+   - width: 60-150 (paddle width in pixels)
+   - height: 10-25 (paddle thickness)
+   - color: any hex color (paddle color)
+   - speed: 5-15 (movement responsiveness)
+
+3. BALL (GAME_CONFIG.ball):
+   - radius: 5-15 (ball size)
+   - color: any hex color (ball color)
+   - trail: true/false (motion trail effect)
+   - glow: true/false (glowing effect)
+
+4. BRICKS (GAME_CONFIG.bricks):
+   - rows: 3-10 (number of brick rows)
+   - cols: 8-15 (number of brick columns)
+   - width: 40-80 (individual brick width)
+   - height: 15-30 (individual brick height)
+   - spacing: 2-8 (gap between bricks)
+   - colors: array of hex colors (brick color scheme)
+
+5. GAME (GAME_CONFIG.game):
+   - lives: 1-5 (player lives)
+   - pointsPerBrick: 10-100 (scoring per brick)
+   - bonusMultiplier: 1-3 (bonus scoring multiplier)
+
+6. EFFECTS (GAME_CONFIG.effects):
+   - particles: true/false (particle effects)
+   - particleCount: 5-30 (particles per brick destruction)
+   - screenShake: true/false (impact screen shake)
+   - powerUps: true/false (power-up items)
+
+QUICK REFERENCE:
+- "Faster ball": GAME_CONFIG.physics.ballSpeed = 6
+- "Bigger paddle": GAME_CONFIG.paddle.width = 120
+- "More bricks": GAME_CONFIG.bricks.rows = 8
+- "Red paddle": GAME_CONFIG.paddle.color = '#ff0000'
+- "Blue ball": GAME_CONFIG.ball.color = '#0066ff'
+- "More lives": GAME_CONFIG.game.lives = 5
+- "More particles": GAME_CONFIG.effects.particleCount = 20
+==========================================================================
+-->
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout - AI-Configurable Template</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      /* MODIFY: Page background */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    #gameContainer {
+      position: relative;
+      border: 3px solid #fff;
+      /* MODIFY: Game border */
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+      background: #000;
+      /* MODIFY: Container background */
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+      /* MODIFY: Game background */
+    }
+
+    #gameUI {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      /* MODIFY: Screen overlay */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      /* MODIFY: Text color */
+      pointer-events: all;
+    }
+
+    .screen h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+      color: #00ff88;
+      /* MODIFY: Title color */
+      font-weight: bold;
+    }
+
+    .btn {
+      background: linear-gradient(45deg, #00ff88, #00cc66);
+      /* MODIFY: Button gradient */
+      border: none;
+      color: white;
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 10px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #gameStats {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #00ff88;
+      /* MODIFY: Stats color */
+      font-size: 1.2em;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      /* MODIFY: Controls text color */
+      font-size: 0.9em;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="600" height="500"></canvas>
+    <div id="gameUI">
+      <div id="gameStats">
+        <div>Score: <span id="score">0</span></div>
+        <div>Lives: <span id="lives">3</span></div>
+        <div>Level: <span id="level">1</span></div>
+      </div>
+      <div id="controls">Use ARROW KEYS or A/D to move paddle</div>
+
+      <div id="startScreen" class="screen">
+        <h1>🧱 BREAKOUT</h1>
+        <p>Use arrow keys or A/D to move the paddle</p>
+        <p>Break all the bricks to advance to the next level</p>
+        <p>Don't let the ball fall off the screen!</p>
+        <button class="btn" onclick="game.start()">START GAME</button>
+      </div>
+
+      <div id="gameOverScreen" class="screen hidden">
+        <h1>Game Over!</h1>
+        <p id="finalScore">Score: 0</p>
+        <p id="finalLevel">Level Reached: 1</p>
+        <button class="btn" onclick="game.restart()">PLAY AGAIN</button>
+        <button class="btn" onclick="game.showStart()">MAIN MENU</button>
+      </div>
+
+      <div id="levelCompleteScreen" class="screen hidden">
+        <h1>Level Complete!</h1>
+        <p id="levelScore">Score: 0</p>
+        <p>Get ready for the next level!</p>
+        <button class="btn" onclick="game.nextLevel()">CONTINUE</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==============================================
+       GAME CONFIGURATION - SAFE MODIFICATION ZONE
+       ============================================== */
+
+    const GAME_CONFIG = {
+      canvas: {
+        width: 600,            // MODIFY: Game width (400-800)
+        height: 500            // MODIFY: Game height (400-600)
+      },
+
+      physics: {
+        ballSpeed: 4,          // MODIFY: Ball movement speed (2-8)
+        paddleSpeed: 8,        // MODIFY: Paddle movement speed (5-15)
+        ballAcceleration: 1.02, // MODIFY: Speed increase per brick (1.0-1.05)
+        maxBallSpeed: 8,       // MODIFY: Maximum ball speed (6-12)
+        gravity: 0             // MODIFY: Ball gravity effect (0-0.2)
+      },
+
+      paddle: {
+        width: 100,            // MODIFY: Paddle width (60-150)
+        height: 15,            // MODIFY: Paddle thickness (10-25)
+        color: '#00ff88',      // MODIFY: Paddle color (any hex)
+        speed: 8,              // MODIFY: Movement responsiveness (5-15)
+        y: 450                 // MODIFY: Paddle Y position (400-480)
+      },
+
+      ball: {
+        radius: 8,             // MODIFY: Ball size (5-15)
+        color: '#ffffff',      // MODIFY: Ball color (any hex)
+        trail: true,           // MODIFY: Motion trail effect (true/false)
+        glow: true             // MODIFY: Glowing effect (true/false)
+      },
+
+      bricks: {
+        rows: 6,               // MODIFY: Number of brick rows (3-10)
+        cols: 10,              // MODIFY: Number of brick columns (8-15)
+        width: 55,             // MODIFY: Individual brick width (40-80)
+        height: 20,            // MODIFY: Individual brick height (15-30)
+        spacing: 5,            // MODIFY: Gap between bricks (2-8)
+        offsetX: 25,           // MODIFY: Horizontal offset (10-50)
+        offsetY: 60,           // MODIFY: Vertical offset (40-80)
+        colors: [              // MODIFY: Brick color scheme (any hex colors)
+          '#ff6b6b', '#4ecdc4', '#45b7d1',
+          '#96ceb4', '#feca57', '#ff9ff3',
+          '#54a0ff', '#5f27cd'
+        ]
+      },
+
+      game: {
+        lives: 3,              // MODIFY: Player lives (1-5)
+        pointsPerBrick: 50,    // MODIFY: Points per brick (10-100)
+        bonusMultiplier: 2,    // MODIFY: Bonus scoring (1-3)
+        levelProgression: true  // MODIFY: Enable level progression (true/false)
+      },
+
+      effects: {
+        particles: true,       // MODIFY: Particle effects (true/false)
+        particleCount: 15,     // MODIFY: Particles per brick (5-30)
+        screenShake: true,     // MODIFY: Impact screen shake (true/false)
+        powerUps: false,       // MODIFY: Power-up items (true/false)
+        trails: true           // MODIFY: Ball trail effects (true/false)
+      }
+    };
+
+    function validateConfig() {
+      const c = GAME_CONFIG;
+      c.canvas.width = Math.max(400, Math.min(800, c.canvas.width));
+      c.canvas.height = Math.max(400, Math.min(600, c.canvas.height));
+      c.physics.ballSpeed = Math.max(2, Math.min(8, c.physics.ballSpeed));
+      c.paddle.width = Math.max(60, Math.min(150, c.paddle.width));
+      c.ball.radius = Math.max(5, Math.min(15, c.ball.radius));
+      c.bricks.rows = Math.max(3, Math.min(10, c.bricks.rows));
+      c.bricks.cols = Math.max(8, Math.min(15, c.bricks.cols));
+      c.game.lives = Math.max(1, Math.min(5, c.game.lives));
+      c.effects.particleCount = Math.max(5, Math.min(30, c.effects.particleCount));
+    }
+    validateConfig();
+
+    /* ==============================================
+       PARTICLE SYSTEM
+       ============================================== */
+
+    class Particle {
+      constructor(x, y, color = '#fff') {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.color = color;
+        this.life = 1.0;
+        this.decay = 0.02;
+        this.size = Math.random() * 4 + 2;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        this.vy += 0.1; // gravity
+        this.life -= this.decay;
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      isDead() { return this.life <= 0; }
+    }
+
+    /* ==============================================
+       GAME CLASSES
+       ============================================== */
+
+    class Paddle {
+      constructor(game) {
+        this.game = game;
+        this.width = GAME_CONFIG.paddle.width;
+        this.height = GAME_CONFIG.paddle.height;
+        this.x = (this.game.width - this.width) / 2;
+        this.y = GAME_CONFIG.paddle.y;
+        this.speed = GAME_CONFIG.paddle.speed;
+        this.moving = { left: false, right: false };
+      }
+
+      update() {
+        if (this.moving.left && this.x > 0) {
+          this.x -= this.speed;
+        }
+        if (this.moving.right && this.x < this.game.width - this.width) {
+          this.x += this.speed;
+        }
+      }
+
+      draw(ctx) {
+        ctx.fillStyle = GAME_CONFIG.paddle.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Gradient effect
+        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        gradient.addColorStop(0, GAME_CONFIG.paddle.color);
+        gradient.addColorStop(1, this.darkenColor(GAME_CONFIG.paddle.color, 0.3));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+
+      darkenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.max(0, parseInt(hex.substr(0, 2), 16) * (1 - amount));
+        const g = Math.max(0, parseInt(hex.substr(2, 2), 16) * (1 - amount));
+        const b = Math.max(0, parseInt(hex.substr(4, 2), 16) * (1 - amount));
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+      }
+    }
+
+    class Ball {
+      constructor(game) {
+        this.game = game;
+        this.radius = GAME_CONFIG.ball.radius;
+        this.reset();
+        this.trail = [];
+      }
+
+      reset() {
+        this.x = this.game.width / 2;
+        this.y = this.game.height / 2;
+        const angle = Math.random() * Math.PI / 3 + Math.PI / 3; // 60-120 degrees
+        this.vx = Math.cos(angle) * GAME_CONFIG.physics.ballSpeed;
+        this.vy = Math.sin(angle) * GAME_CONFIG.physics.ballSpeed;
+        this.trail = [];
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Add gravity if enabled
+        this.vy += GAME_CONFIG.physics.gravity;
+
+        // Trail effect
+        if (GAME_CONFIG.effects.trails) {
+          this.trail.push({ x: this.x, y: this.y });
+          if (this.trail.length > 10) this.trail.shift();
+        }
+
+        // Wall collisions
+        if (this.x <= this.radius || this.x >= this.game.width - this.radius) {
+          this.vx = -this.vx;
+          this.x = Math.max(this.radius, Math.min(this.game.width - this.radius, this.x));
+        }
+        if (this.y <= this.radius) {
+          this.vy = -this.vy;
+          this.y = this.radius;
+        }
+
+        // Paddle collision
+        const paddle = this.game.paddle;
+        if (this.y + this.radius >= paddle.y &&
+          this.y <= paddle.y + paddle.height &&
+          this.x >= paddle.x &&
+          this.x <= paddle.x + paddle.width) {
+
+          this.vy = -Math.abs(this.vy);
+          // Add spin based on paddle hit position
+          const hitPos = (this.x - paddle.x) / paddle.width - 0.5;
+          this.vx += hitPos * 2;
+
+          this.y = paddle.y - this.radius;
+        }
+
+        // Limit ball speed
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (speed > GAME_CONFIG.physics.maxBallSpeed) {
+          this.vx = (this.vx / speed) * GAME_CONFIG.physics.maxBallSpeed;
+          this.vy = (this.vy / speed) * GAME_CONFIG.physics.maxBallSpeed;
+        }
+      }
+
+      draw(ctx) {
+        // Draw trail
+        if (GAME_CONFIG.effects.trails) {
+          this.trail.forEach((pos, i) => {
+            ctx.save();
+            ctx.globalAlpha = i / this.trail.length * 0.5;
+            ctx.fillStyle = GAME_CONFIG.ball.color;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, this.radius * (i / this.trail.length), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          });
+        }
+
+        // Draw ball
+        ctx.save();
+        if (GAME_CONFIG.ball.glow) {
+          ctx.shadowColor = GAME_CONFIG.ball.color;
+          ctx.shadowBlur = 15;
+        }
+        ctx.fillStyle = GAME_CONFIG.ball.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class Brick {
+      constructor(x, y, color, points = 50) {
+        this.x = x;
+        this.y = y;
+        this.width = GAME_CONFIG.bricks.width;
+        this.height = GAME_CONFIG.bricks.height;
+        this.color = color;
+        this.points = points;
+        this.destroyed = false;
+      }
+
+      draw(ctx) {
+        if (this.destroyed) return;
+
+        // Main brick
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Highlight effect
+        const gradient = ctx.createLinearGradient(this.x, this.y, this.x, this.y + this.height);
+        gradient.addColorStop(0, this.lightenColor(this.color, 0.3));
+        gradient.addColorStop(1, this.color);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Border
+        ctx.strokeStyle = this.lightenColor(this.color, 0.5);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+      }
+
+      checkCollision(ball) {
+        if (this.destroyed) return false;
+
+        return ball.x + ball.radius > this.x &&
+          ball.x - ball.radius < this.x + this.width &&
+          ball.y + ball.radius > this.y &&
+          ball.y - ball.radius < this.y + this.height;
+      }
+
+      lightenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + (255 * amount));
+        const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + (255 * amount));
+        const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + (255 * amount));
+        return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+      }
+    }
+
+    class BreakoutGame {
+      constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.width = GAME_CONFIG.canvas.width;
+        this.height = GAME_CONFIG.canvas.height;
+
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        this.state = 'start';
+        this.score = 0;
+        this.lives = GAME_CONFIG.game.lives;
+        this.level = 1;
+
+        this.paddle = new Paddle(this);
+        this.ball = new Ball(this);
+        this.bricks = [];
+        this.particles = [];
+
+        this.setupEventListeners();
+        this.initializeBricks();
+        this.updateUI();
+      }
+
+      setupEventListeners() {
+        document.addEventListener('keydown', (e) => {
+          switch (e.code) {
+            case 'ArrowLeft':
+            case 'KeyA':
+              e.preventDefault();
+              this.paddle.moving.left = true;
+              break;
+            case 'ArrowRight':
+            case 'KeyD':
+              e.preventDefault();
+              this.paddle.moving.right = true;
+              break;
+            case 'Space':
+              e.preventDefault();
+              this.handleInput();
+              break;
+          }
+        });
+
+        document.addEventListener('keyup', (e) => {
+          switch (e.code) {
+            case 'ArrowLeft':
+            case 'KeyA':
+              this.paddle.moving.left = false;
+              break;
+            case 'ArrowRight':
+            case 'KeyD':
+              this.paddle.moving.right = false;
+              break;
+          }
+        });
+      }
+
+      initializeBricks() {
+        this.bricks = [];
+        for (let row = 0; row < GAME_CONFIG.bricks.rows; row++) {
+          for (let col = 0; col < GAME_CONFIG.bricks.cols; col++) {
+            const x = GAME_CONFIG.bricks.offsetX + col * (GAME_CONFIG.bricks.width + GAME_CONFIG.bricks.spacing);
+            const y = GAME_CONFIG.bricks.offsetY + row * (GAME_CONFIG.bricks.height + GAME_CONFIG.bricks.spacing);
+            const colorIndex = row % GAME_CONFIG.bricks.colors.length;
+            const color = GAME_CONFIG.bricks.colors[colorIndex];
+            const points = GAME_CONFIG.game.pointsPerBrick * (GAME_CONFIG.bricks.rows - row);
+            this.bricks.push(new Brick(x, y, color, points));
+          }
+        }
+      }
+
+      handleInput() {
+        switch (this.state) {
+          case 'start':
+            this.start();
+            break;
+          case 'gameOver':
+            this.restart();
+            break;
+          case 'levelComplete':
+            this.nextLevel();
+            break;
+        }
+      }
+
+      start() {
+        this.state = 'playing';
+        this.hideAllScreens();
+        this.gameLoop();
+      }
+
+      restart() {
+        this.score = 0;
+        this.lives = GAME_CONFIG.game.lives;
+        this.level = 1;
+        this.initializeBricks();
+        this.ball.reset();
+        this.particles = [];
+        this.updateUI();
+        this.start();
+      }
+
+      nextLevel() {
+        this.level++;
+        this.initializeBricks();
+        this.ball.reset();
+        this.particles = [];
+        this.updateUI();
+        this.start();
+      }
+
+      gameOver() {
+        this.state = 'gameOver';
+        document.getElementById('finalScore').textContent = `Score: ${this.score}`;
+        document.getElementById('finalLevel').textContent = `Level Reached: ${this.level}`;
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+      }
+
+      levelComplete() {
+        this.state = 'levelComplete';
+        document.getElementById('levelScore').textContent = `Score: ${this.score}`;
+        document.getElementById('levelCompleteScreen').classList.remove('hidden');
+      }
+
+      showStart() {
+        this.state = 'start';
+        this.hideAllScreens();
+        document.getElementById('startScreen').classList.remove('hidden');
+      }
+
+      hideAllScreens() {
+        document.querySelectorAll('.screen').forEach(screen => {
+          screen.classList.add('hidden');
+        });
+      }
+
+      updateUI() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('lives').textContent = this.lives;
+        document.getElementById('level').textContent = this.level;
+      }
+
+      update() {
+        if (this.state !== 'playing') return;
+
+        this.paddle.update();
+        this.ball.update();
+
+        // Check brick collisions
+        for (let brick of this.bricks) {
+          if (brick.checkCollision(this.ball)) {
+            brick.destroyed = true;
+            this.score += brick.points;
+
+            // Ball bounce
+            this.ball.vy = -this.ball.vy;
+
+            // Speed up ball slightly
+            const currentSpeed = Math.sqrt(this.ball.vx * this.ball.vx + this.ball.vy * this.ball.vy);
+            const newSpeed = Math.min(currentSpeed * GAME_CONFIG.physics.ballAcceleration, GAME_CONFIG.physics.maxBallSpeed);
+            this.ball.vx = (this.ball.vx / currentSpeed) * newSpeed;
+            this.ball.vy = (this.ball.vy / currentSpeed) * newSpeed;
+
+            // Add particles
+            if (GAME_CONFIG.effects.particles) {
+              for (let i = 0; i < GAME_CONFIG.effects.particleCount; i++) {
+                this.particles.push(new Particle(
+                  brick.x + brick.width / 2,
+                  brick.y + brick.height / 2,
+                  brick.color
+                ));
+              }
+            }
+
+            this.updateUI();
+            break;
+          }
+        }
+
+        // Check if all bricks are destroyed
+        if (this.bricks.every(brick => brick.destroyed)) {
+          this.levelComplete();
+          return;
+        }
+
+        // Check if ball fell off screen
+        if (this.ball.y > this.height) {
+          this.lives--;
+          this.updateUI();
+
+          if (this.lives <= 0) {
+            this.gameOver();
+          } else {
+            this.ball.reset();
+          }
+        }
+
+        // Update particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          this.particles[i].update();
+          if (this.particles[i].isDead()) {
+            this.particles.splice(i, 1);
+          }
+        }
+      }
+
+      draw() {
+        // Clear canvas
+        this.ctx.fillStyle = '#1a1a2e';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // Draw game objects
+        this.paddle.draw(this.ctx);
+        this.ball.draw(this.ctx);
+
+        // Draw bricks
+        this.bricks.forEach(brick => brick.draw(this.ctx));
+
+        // Draw particles
+        this.particles.forEach(particle => particle.draw(this.ctx));
+      }
+
+      gameLoop() {
+        this.update();
+        this.draw();
+        if (this.state === 'playing') {
+          requestAnimationFrame(() => this.gameLoop());
+        }
+      }
+    }
+
+    // Initialize game
+    const game = new BreakoutGame();
+
+    /* ==========================================================================
+       COMPLETE AI AGENT MODIFICATION REFERENCE GUIDE
+       ==========================================================================
+       
+       This section provides AI agents with comprehensive modification examples
+       and ensures all changes are safe and won't break the game.
+       
+       ==========================================================================
+       QUICK MODIFICATION REFERENCE:
+       ==========================================================================
+       
+       PHYSICS & SPEED MODIFICATIONS:
+       ------------------------------
+       Faster ball:               GAME_CONFIG.physics.ballSpeed = 6
+       Slower ball:               GAME_CONFIG.physics.ballSpeed = 3
+       Faster paddle:             GAME_CONFIG.paddle.speed = 12
+       Slower paddle:             GAME_CONFIG.paddle.speed = 5
+       More acceleration:         GAME_CONFIG.physics.ballAcceleration = 1.04
+       Less acceleration:         GAME_CONFIG.physics.ballAcceleration = 1.01
+       Higher speed limit:        GAME_CONFIG.physics.maxBallSpeed = 10
+       Add gravity:               GAME_CONFIG.physics.gravity = 0.1
+       
+       PADDLE MODIFICATIONS:
+       ---------------------
+       Bigger paddle:             GAME_CONFIG.paddle.width = 120
+       Smaller paddle:            GAME_CONFIG.paddle.width = 80
+       Thicker paddle:            GAME_CONFIG.paddle.height = 20
+       Thinner paddle:            GAME_CONFIG.paddle.height = 10
+       Red paddle:                GAME_CONFIG.paddle.color = '#ff0000'
+       Blue paddle:               GAME_CONFIG.paddle.color = '#0066ff'
+       Green paddle:              GAME_CONFIG.paddle.color = '#00ff00'
+       Higher paddle position:    GAME_CONFIG.paddle.y = 430
+       Lower paddle position:     GAME_CONFIG.paddle.y = 470
+       
+       BALL MODIFICATIONS:
+       -------------------
+       Bigger ball:               GAME_CONFIG.ball.radius = 12
+       Smaller ball:              GAME_CONFIG.ball.radius = 6
+       Red ball:                  GAME_CONFIG.ball.color = '#ff0000'
+       Blue ball:                 GAME_CONFIG.ball.color = '#0066ff'
+       Yellow ball:               GAME_CONFIG.ball.color = '#ffff00'
+       Purple ball:               GAME_CONFIG.ball.color = '#9932cc'
+       No trail:                  GAME_CONFIG.ball.trail = false
+       More trail:                GAME_CONFIG.effects.trails = true
+       No glow:                   GAME_CONFIG.ball.glow = false
+       
+       BRICK PATTERN MODIFICATIONS:
+       ----------------------------
+       More rows:                 GAME_CONFIG.bricks.rows = 8
+       Fewer rows:                GAME_CONFIG.bricks.rows = 4
+       More columns:              GAME_CONFIG.bricks.cols = 12
+       Fewer columns:             GAME_CONFIG.bricks.cols = 8
+       Bigger bricks:             GAME_CONFIG.bricks.width = 70, height = 25
+       Smaller bricks:            GAME_CONFIG.bricks.width = 45, height = 15
+       More spacing:              GAME_CONFIG.bricks.spacing = 8
+       Less spacing:              GAME_CONFIG.bricks.spacing = 2
+       Higher brick area:         GAME_CONFIG.bricks.offsetY = 40
+       Lower brick area:          GAME_CONFIG.bricks.offsetY = 80
+       
+       BRICK COLOR MODIFICATIONS:
+       --------------------------
+       Rainbow bricks:            GAME_CONFIG.bricks.colors = ['#ff0000','#ff7f00','#ffff00','#00ff00','#0000ff','#4b0082','#9400d3']
+       Red theme:                 GAME_CONFIG.bricks.colors = ['#ff6b6b','#ff5252','#f44336','#e53935']
+       Blue theme:                GAME_CONFIG.bricks.colors = ['#64b5f6','#42a5f5','#2196f3','#1976d2']
+       Green theme:               GAME_CONFIG.bricks.colors = ['#81c784','#66bb6a','#4caf50','#388e3c']
+       Monochrome:                GAME_CONFIG.bricks.colors = ['#f5f5f5','#e0e0e0','#bdbdbd','#9e9e9e']
+       Neon theme:                GAME_CONFIG.bricks.colors = ['#ff1744','#00e676','#00bcd4','#ff9800']
+       
+       GAME MECHANICS MODIFICATIONS:
+       -----------------------------
+       More lives:                GAME_CONFIG.game.lives = 5
+       Fewer lives:               GAME_CONFIG.game.lives = 1
+       One life mode:             GAME_CONFIG.game.lives = 1
+       Higher scoring:            GAME_CONFIG.game.pointsPerBrick = 100
+       Lower scoring:             GAME_CONFIG.game.pointsPerBrick = 25
+       Bonus multiplier:          GAME_CONFIG.game.bonusMultiplier = 3
+       No level progression:      GAME_CONFIG.game.levelProgression = false
+       
+       VISUAL EFFECTS MODIFICATIONS:
+       -----------------------------
+       More particles:            GAME_CONFIG.effects.particleCount = 25
+       Fewer particles:           GAME_CONFIG.effects.particleCount = 8
+       No particles:              GAME_CONFIG.effects.particles = false
+       No screen shake:           GAME_CONFIG.effects.screenShake = false
+       Enable power-ups:          GAME_CONFIG.effects.powerUps = true
+       No trails:                 GAME_CONFIG.effects.trails = false
+       
+       CANVAS SIZE MODIFICATIONS:
+       --------------------------
+       Bigger game:               GAME_CONFIG.canvas.width = 700, height = 600
+       Smaller game:              GAME_CONFIG.canvas.width = 500, height = 400
+       Widescreen:                GAME_CONFIG.canvas.width = 800, height = 500
+       Tall format:               GAME_CONFIG.canvas.width = 500, height = 700
+       Mobile portrait:           GAME_CONFIG.canvas.width = 400, height = 600
+       Mobile landscape:          GAME_CONFIG.canvas.width = 600, height = 400
+       
+       ==========================================================================
+       COMMON USER REQUESTS AND SOLUTIONS:
+       ==========================================================================
+       
+       "Make the ball faster"
+       → GAME_CONFIG.physics.ballSpeed = 6
+       
+       "Make the paddle bigger"
+       → GAME_CONFIG.paddle.width = 120
+       
+       "Red paddle with blue ball"
+       → GAME_CONFIG.paddle.color = '#ff0000'
+       → GAME_CONFIG.ball.color = '#0066ff'
+       
+       "More bricks to break"
+       → GAME_CONFIG.bricks.rows = 8
+       → GAME_CONFIG.bricks.cols = 12
+       
+       "Rainbow colored bricks"
+       → GAME_CONFIG.bricks.colors = ['#ff0000','#ff7f00','#ffff00','#00ff00','#0000ff','#4b0082','#9400d3']
+       
+       "Easier game with more lives"
+       → GAME_CONFIG.game.lives = 5
+       → GAME_CONFIG.paddle.width = 120
+       → GAME_CONFIG.physics.ballSpeed = 3
+       
+       "Harder game with faster ball"
+       → GAME_CONFIG.physics.ballSpeed = 7
+       → GAME_CONFIG.paddle.width = 80
+       → GAME_CONFIG.game.lives = 1
+       
+       "No special effects"
+       → GAME_CONFIG.effects.particles = false
+       → GAME_CONFIG.ball.trail = false
+       → GAME_CONFIG.ball.glow = false
+       
+       "More visual effects"
+       → GAME_CONFIG.effects.particleCount = 25
+       → GAME_CONFIG.ball.trail = true
+       → GAME_CONFIG.ball.glow = true
+       
+       "Bigger game area"
+       → GAME_CONFIG.canvas.width = 700
+       → GAME_CONFIG.canvas.height = 600
+       
+       "Neon theme"
+       → GAME_CONFIG.paddle.color = '#00ff88'
+       → GAME_CONFIG.ball.color = '#ff1744'
+       → GAME_CONFIG.bricks.colors = ['#ff1744','#00e676','#00bcd4','#ff9800']
+       
+       "Classic arcade style"
+       → GAME_CONFIG.paddle.color = '#ffffff'
+       → GAME_CONFIG.ball.color = '#ffffff'
+       → GAME_CONFIG.bricks.colors = ['#ff6b6b','#4ecdc4','#45b7d1','#96ceb4']
+       → GAME_CONFIG.effects.particles = false
+       
+       "Progressive difficulty"
+       → GAME_CONFIG.physics.ballAcceleration = 1.04
+       → GAME_CONFIG.physics.maxBallSpeed = 10
+       → GAME_CONFIG.game.levelProgression = true
+       
+       ==========================================================================
+       THEME EXAMPLES FOR AI AGENTS:
+       ==========================================================================
+       
+       RETRO THEME:
+       → GAME_CONFIG.paddle.color = '#00ff00'
+       → GAME_CONFIG.ball.color = '#00ff00'
+       → GAME_CONFIG.bricks.colors = ['#00ff00','#ffff00','#ff0000','#ff00ff']
+       
+       OCEAN THEME:
+       → GAME_CONFIG.paddle.color = '#006994'
+       → GAME_CONFIG.ball.color = '#87ceeb'
+       → GAME_CONFIG.bricks.colors = ['#87ceeb','#4682b4','#5f9ea0','#20b2aa','#008b8b']
+       
+       FIRE THEME:
+       → GAME_CONFIG.paddle.color = '#ff4500'
+       → GAME_CONFIG.ball.color = '#ffff00'
+       → GAME_CONFIG.bricks.colors = ['#ffff00','#ffa500','#ff6347','#ff4500','#dc143c']
+       
+       SPACE THEME:
+       → GAME_CONFIG.paddle.color = '#c0c0c0'
+       → GAME_CONFIG.ball.color = '#ffffff'
+       → GAME_CONFIG.bricks.colors = ['#9370db','#4169e1','#1e90ff','#00bfff','#87ceeb']
+       
+       ==========================================================================
+       SAFETY VALIDATION:
+       ==========================================================================
+       
+       The validateConfig() function automatically prevents unsafe values:
+       - Canvas dimensions are limited to 400-800 width, 400-600 height
+       - Ball speed is limited to 2-8 range for playability
+       - Paddle width is limited to 60-150 range
+       - Ball radius is limited to 5-15 range
+       - Brick counts are limited to prevent performance issues
+       - Particle counts are limited to maintain smooth gameplay
+       - All critical game mechanics are protected
+       
+       SAFE TO MODIFY:
+       ✅ GAME_CONFIG values (within documented ranges)
+       ✅ CSS colors and fonts
+       ✅ HTML text content
+       ✅ Button text and labels
+       ✅ Brick color arrays
+       ✅ Visual effect toggles
+       
+       DO NOT MODIFY:
+       ❌ Class structures and method names
+       ❌ Event listener implementations
+       ❌ Game loop logic
+       ❌ Collision detection algorithms
+       ❌ Physics calculations
+       ❌ Local storage mechanisms
+       ❌ Canvas context operations
+       
+       ==========================================================================
+       MODIFICATION TEMPLATE FOR AI AGENTS:
+       ==========================================================================
+       
+       When modifying this template:
+       1. Identify the user's request category (physics, visual, difficulty, etc.)
+       2. Find the appropriate GAME_CONFIG section
+       3. Make changes within the documented safe ranges
+       4. If changing colors, use valid hex codes or CSS color names
+       5. For themes, modify multiple related elements for consistency
+       6. Test that the modification makes logical sense for gameplay
+       
+       Example modification process:
+       User: "Make it a neon theme with faster ball and bigger paddle"
+       1. Identify: Theme change + physics change + paddle change
+       2. Modify: GAME_CONFIG.paddle.color = '#00ff88'
+       3. Modify: GAME_CONFIG.ball.color = '#ff1744'
+       4. Modify: GAME_CONFIG.bricks.colors = ['#ff1744','#00e676','#00bcd4','#ff9800']
+       5. Modify: GAME_CONFIG.physics.ballSpeed = 6
+       6. Modify: GAME_CONFIG.paddle.width = 120
+       7. Result: Neon-themed game with enhanced gameplay
+       
+       ==========================================================================
+       TROUBLESHOOTING FOR AI AGENTS:
+       ==========================================================================
+       
+       If modifications don't work as expected:
+       1. Check that values are within safe ranges
+       2. Ensure color codes are valid hex format (#rrggbb)
+       3. Verify that boolean values are true/false (not strings)
+       4. Make sure array values are properly formatted
+       5. The validateConfig() function will auto-correct unsafe values
+       
+       ========================================================================== */
+  </script>
+</body>
+
+</html>

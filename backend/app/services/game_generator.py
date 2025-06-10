@@ -1,12 +1,12 @@
 """
 Game generation service for orchestrating game creation.
-Coordinates AI generation, template processing, and validation.
+Production-ready orchestrator focused on core functionality.
 """
 
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict
 
 import structlog
 
@@ -18,9 +18,7 @@ from ..models.game_models import (
     GameVersion,
 )
 from ..services.ai_service import AIService, AIServiceError
-from ..utils.code_utils import CodeAnalyzer, HTMLParser
-from ..utils.constants import GenerationStatus
-from ..utils.validation import validator
+from ..utils.constants import GameType, GenerationStatus
 
 logger = structlog.get_logger(__name__)
 
@@ -32,12 +30,10 @@ class GameGenerationError(Exception):
 
 
 class GameGenerator:
-    """Orchestrates game creation and management."""
+    """Production game generator orchestrating AI service for game creation."""
 
     def __init__(self):
         self.ai_service = AIService()
-        self.code_analyzer = CodeAnalyzer()
-        self.html_parser = HTMLParser()
 
     async def generate_game(self, request: GameGenerationRequest) -> GameGenerationResult:
         """
@@ -60,7 +56,7 @@ class GameGenerator:
                 engine=request.engine,
             )
 
-            # Generate game using AI
+            # Generate game using AI service
             ai_result = await self.ai_service.generate_game(request)
 
             # Create game metadata
@@ -92,13 +88,6 @@ class GameGenerator:
                 conversation_context=[],
             )
 
-            # Analyze generated game features
-            detected_features = self.code_analyzer.extract_game_features(ai_result["game_code"])
-            game_state.metadata.features.extend(detected_features)
-            game_state.metadata.features = list(
-                set(game_state.metadata.features)
-            )  # Remove duplicates
-
             generation_time = time.time() - start_time
 
             result = GameGenerationResult(
@@ -107,7 +96,7 @@ class GameGenerator:
                 session_id=session_id,
                 generation_time=generation_time,
                 tokens_used=ai_result.get("tokens_used", 0),
-                warnings=ai_result.get("validation_issues", []),
+                warnings=ai_result.get("warnings", []),
             )
 
             logger.info(
@@ -150,165 +139,7 @@ class GameGenerator:
                 error_message=f"Generation failed: {str(e)}",
             )
 
-    async def regenerate_game(
-        self,
-        session_id: str,
-        current_game_state: GameState,
-        modifications: Optional[str] = None,
-    ) -> GameGenerationResult:
-        """
-        Regenerate game with modifications.
-
-        Args:
-            session_id: Session identifier
-            current_game_state: Current game state
-            modifications: Optional modification instructions
-
-        Returns:
-            GameGenerationResult with regenerated game
-        """
-        start_time = time.time()
-
-        try:
-            # Create regeneration request
-            prompt = modifications or "Regenerate this game with improvements"
-
-            request = GameGenerationRequest(
-                prompt=prompt,
-                game_type=current_game_state.metadata.game_type,
-                engine=current_game_state.metadata.engine,
-                difficulty=current_game_state.metadata.difficulty,
-                features=current_game_state.metadata.features,
-                session_id=session_id,
-            )
-
-            # Generate new version
-            ai_result = await self.ai_service.generate_game(request)
-
-            # Create new version
-            new_version = GameVersion(
-                version=current_game_state.current_version + 1,
-                created_at=datetime.utcnow(),
-                modification_summary=modifications or "Game regeneration",
-                modifications_applied=["regeneration"],
-                code_size=len(ai_result["game_code"].encode("utf-8")),
-                generation_time=ai_result["generation_time"],
-                is_current=True,
-                parent_version=current_game_state.current_version,
-            )
-
-            # Update game state
-            current_game_state.code = ai_result["game_code"]
-            current_game_state.current_version = new_version.version
-            current_game_state.versions.append(new_version)
-            current_game_state.updated_at = datetime.utcnow()
-            current_game_state.status = GenerationStatus.COMPLETED
-
-            # Mark previous version as not current
-            for version in current_game_state.versions:
-                if version.version != new_version.version:
-                    version.is_current = False
-
-            generation_time = time.time() - start_time
-
-            result = GameGenerationResult(
-                success=True,
-                game_state=current_game_state,
-                session_id=session_id,
-                generation_time=generation_time,
-                tokens_used=ai_result.get("tokens_used", 0),
-            )
-
-            logger.info(
-                "Game regeneration completed",
-                session_id=session_id,
-                game_id=current_game_state.game_id,
-                new_version=new_version.version,
-            )
-
-            return result
-
-        except Exception as e:
-            logger.error(
-                "Game regeneration failed",
-                session_id=session_id,
-                error=str(e),
-            )
-
-            return GameGenerationResult(
-                success=False,
-                game_state=current_game_state,
-                session_id=session_id,
-                generation_time=time.time() - start_time,
-                error_message=f"Regeneration failed: {str(e)}",
-            )
-
-    def validate_game_code(self, game_code: str) -> Tuple[bool, List[str]]:
-        """
-        Validate generated game code.
-
-        Args:
-            game_code: HTML game code to validate
-
-        Returns:
-            Tuple of (is_valid, list_of_issues)
-        """
-        try:
-            return validator.validate_game_code(game_code)
-        except Exception as e:
-            logger.error("Code validation failed", error=str(e))
-            return False, [f"Validation error: {str(e)}"]
-
-    def analyze_game_complexity(self, game_code: str) -> Dict[str, Any]:
-        """
-        Analyze complexity of generated game.
-
-        Args:
-            game_code: Game code to analyze
-
-        Returns:
-            Dictionary with complexity metrics
-        """
-        try:
-            return self.code_analyzer.analyze_complexity(game_code, "html")
-        except Exception as e:
-            logger.error("Complexity analysis failed", error=str(e))
-            return {"error": str(e)}
-
-    def extract_game_info(self, game_code: str) -> Dict[str, Any]:
-        """
-        Extract information from game code.
-
-        Args:
-            game_code: Game code to analyze
-
-        Returns:
-            Dictionary with extracted information
-        """
-        try:
-            # Extract meta information
-            meta_info = self.html_parser.extract_meta_tags(game_code)
-
-            # Extract scripts
-            scripts = self.html_parser.extract_scripts(game_code)
-
-            # Extract styles
-            styles = self.html_parser.extract_styles(game_code)
-
-            # Detect features
-            features = self.code_analyzer.extract_game_features(game_code)
-
-            return {
-                "meta_info": meta_info,
-                "scripts": len(scripts),
-                "styles": len(styles),
-                "features": features,
-                "code_size": len(game_code.encode("utf-8")),
-            }
-
-        except Exception as e:
-            logger.error("Game info extraction failed", error=str(e))
-            return {"error": str(e)}
+    # Private helper methods
 
     def _create_game_metadata(
         self,
@@ -317,11 +148,17 @@ class GameGenerator:
     ) -> GameMetadata:
         """Create game metadata from request and AI result."""
 
-        # Extract title from AI result or generate from prompt
+        # Extract title from prompt or use default
         title = self._extract_title_from_prompt(request.prompt)
 
-        # Determine game type
-        game_type = request.game_type or ai_result["metadata"].get("game_type", "arcade")
+        # Determine game type and convert to enum
+        game_type_str = request.game_type or ai_result["metadata"].get("game_type", "arcade")
+
+        # Convert string to GameType enum
+        try:
+            game_type = GameType(game_type_str.upper())
+        except (ValueError, AttributeError):
+            game_type = GameType.ARCADE  # Default fallback
 
         # Build metadata
         metadata = GameMetadata(
@@ -333,8 +170,8 @@ class GameGenerator:
             engine=request.engine or "phaser",
             difficulty=request.difficulty or "beginner",
             features=request.features or [],
-            controls={},  # Will be populated by analyzing the code
-            objectives=[],  # Will be populated by analyzing the code
+            controls={},  # Basic controls info
+            objectives=["Play and have fun!"],  # Basic objective
             tags=[game_type, request.engine or "phaser"],
         )
 
@@ -359,21 +196,3 @@ class GameGenerator:
     def _generate_game_id(self) -> str:
         """Generate a unique game ID."""
         return f"game_{uuid.uuid4().hex[:8]}"
-
-    async def get_generation_statistics(self) -> Dict[str, Any]:
-        """Get game generation statistics."""
-        try:
-            ai_stats = self.ai_service.get_statistics()
-
-            return {
-                "ai_service": ai_stats,
-                "total_generations": ai_stats.get("total_calls", 0),
-                "average_generation_time": 0,  # Would calculate from stored data
-                "success_rate": 0.95,  # Would calculate from stored data
-                "popular_game_types": ["platformer", "shooter", "puzzle"],  # From analytics
-                "popular_engines": ["phaser", "three", "p5"],  # From analytics
-            }
-
-        except Exception as e:
-            logger.error("Failed to get generation statistics", error=str(e))
-            return {}
